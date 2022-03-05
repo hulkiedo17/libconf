@@ -1,0 +1,6 @@
+name=value
+OS=Linux
+Arch=x86
+SHELL=bash
+SHELL=bash
+EDITOR=vim
