@@ -5,12 +5,12 @@
 #include <assert.h>
 #include "libconf.h"
 
-#define PUT_NEW_LINE 1
-#define NOPUT_NEW_LINE 0
 #define LINE_SIZE 128
 #define BUFFER_SIZE 512
 #define CUR_LINE_POS 0
 #define NEXT_LINE_POS 1
+
+////////////misc-non-buf///////////
 
 static void error(const char *fmt, ...) {
 	va_list ap;
@@ -53,6 +53,35 @@ static int put_str_to_file(FILE* fp, char* string) {
 	}
 
 	return pos;
+}
+
+static char* create_variable_string(char* name, char* value) {
+	assert(name != NULL);
+	assert(value != NULL);
+
+	int len_str = strlen(name) + strlen(value) + 3; // +3 because =, \n, \0
+	char* string = malloc(len_str * sizeof(char));
+	if(string == NULL) {
+		error("cannot malloc string\n");
+	}
+
+	sprintf(string, "%s=%s\n", name, value);
+
+	return string;
+}
+
+///////////////buffer//////////////
+static char* copy_buffer(char* buffer) {
+	assert(buffer != NULL);
+
+	int len = strlen(buffer) + 1;
+	char* new_buffer = malloc(len * sizeof(char));
+	if(new_buffer == NULL) {
+		error("cannot calloc buffer\n");
+	}
+
+	strncpy(new_buffer, buffer, len);
+	return new_buffer;
 }
 
 static char* put_str_to_buffer(char* buffer, char* string) {
@@ -111,19 +140,6 @@ static char* read_line_from_file(FILE* fp) {
 	return NULL;
 }
 
-static char* copy_buffer(char* buffer) {
-	assert(buffer != NULL);
-
-	int len = strlen(buffer) + 1;
-	char* new_buffer = malloc(len * sizeof(char));
-	if(new_buffer == NULL) {
-		error("cannot calloc buffer\n");
-	}
-
-	strncpy(new_buffer, buffer, len);
-	return new_buffer;
-}
-
 static int find_variable_position(char* buffer, char* name, int next_line_flag) {
 	assert(buffer != NULL);
 	assert(name != NULL);
@@ -149,103 +165,7 @@ static int find_variable_position(char* buffer, char* name, int next_line_flag) 
 	return -1;
 }
 
-static char* create_variable_string(char* name, char* value) {
-	assert(name != NULL);
-	assert(value != NULL);
-
-	int len_str = strlen(name) + strlen(value) + 3; // +3 because =, \n, \0
-	char* string = malloc(len_str * sizeof(char));
-	if(string == NULL) {
-		error("cannot malloc string\n");
-	}
-
-	sprintf(string, "%s=%s\n", name, value);
-
-	return string;
-}
-
-int write_to_file(char* filename, char* name, char* value) {
-	if(name == NULL) {
-		warning("unknown name\n");
-		return -1;
-	}
-	if(filename == NULL) {
-		warning("unknown filename\n");
-		return -1;
-	}
-	if(value == NULL) {
-		warning("unknown value\n");
-		return -1;
-	}
-
-	FILE* fp = open_file(filename, "w+");
-	if(!fp) return -1;
-
-	char* string = create_variable_string(name, value);
-	put_str_to_file(fp, string);
-	free(string);
-
-	fclose(fp);
-	return 0;
-}
-
-int append_to_file(char* filename, char* name, char* value) {
-	if(name == NULL) {
-		warning("unknown name\n");
-		return -1;
-	}
-	if(filename == NULL) {
-		warning("unknown filename\n");
-		return -1;
-	}
-	if(value == NULL) {
-		warning("unknown value\n");
-		return -1;
-	}
-
-	FILE* fp = open_file(filename, "a+");
-	if(!fp) return -1;
-
-	char* string = create_variable_string(name, value);
-	put_str_to_file(fp, string);
-	free(string);
-
-	fclose(fp);
-	return 0;
-}
-
-char* read_variable(char* filename, char* name) {
-	if(name == NULL) {
-		warning("unknown name\n");
-		return NULL;
-	}
-	if(filename == NULL) {
-		warning("unknown filename\n");
-		return NULL;
-	}
-
-	FILE* fp = open_file(filename, "r");
-	if(!fp) return NULL;
-	
-	char * line = NULL;
-	char * result = NULL;
-	while((line = read_line_from_file(fp)) != NULL) {
-		char* var = strtok(line, "=");
-		char* value = strtok(NULL, "=");
-
-		if(strcmp(name, var) == 0) {
-			result = strdup(value);
-			free(line);
-			break;
-		}
-		free(line);
-		line = NULL;
-	}
-
-	return result;
-}
-
-char* read_file_to_buffer(char* filename) {
+static char* read_file_to_buffer(char* filename) {
 	if(filename == NULL) {
 		warning("unknown filename\n");
 		return NULL;
@@ -293,7 +213,7 @@ char* read_file_to_buffer(char* filename) {
 	return NULL;
 }
 
-int write_buffer_to_file(char* filename, char* buffer) {
+static int write_buffer_to_file(char* filename, char* buffer) {
 	if(filename == NULL) {
 		warning("unknown filename\n");
 		return -1;
@@ -312,26 +232,7 @@ int write_buffer_to_file(char* filename, char* buffer) {
 	return 0;
 }
 
-int append_buffer_to_file(char* filename, char* buffer) {
-	if(filename == NULL) {
-		warning("unknown filename\n");
-		return -1;
-	}
-	if(buffer == NULL) {
-		warning("buffer is empty");
-		return -1;
-	}
-
-	FILE* fp = open_file(filename, "a");
-	if(!fp) return -1;
-
-	put_str_to_file(fp, buffer);
-
-	fclose(fp);
-	return 0;
-}
-
-char* delete_variable_from_buffer(char* buffer, char* name) {
+static char* delete_variable_from_buffer(char* buffer, char* name) {
 	if(name == NULL) {
 		warning("unknown name\n");
 		return NULL;
@@ -345,7 +246,6 @@ char* delete_variable_from_buffer(char* buffer, char* name) {
 	int position2 = find_variable_position(buffer, name, NEXT_LINE_POS);
 	int new_buffer_size = strlen(buffer) - (position2 - position1) + 1;
 
-	printf("buffer = %d\n", new_buffer_size);
 	if(new_buffer_size <= 0 || new_buffer_size == 1) {
 		free(buffer);
 		return NULL;
@@ -363,7 +263,7 @@ char* delete_variable_from_buffer(char* buffer, char* name) {
 	return new_buffer;
 }
 
-char* insert_variable_to_buffer(char* buffer, char* name, char* value) {
+static char* insert_variable_to_buffer(char* buffer, char* name, char* value) {
 	if(name == NULL) {
 		warning("unknown name\n");
 		return NULL;
@@ -385,6 +285,98 @@ char* insert_variable_to_buffer(char* buffer, char* name, char* value) {
 	return new_buffer;
 }
 
+//////////////main-api/////////////
+
+int write_to_file(char* filename, char* name, char* value) {
+	if(name == NULL) {
+		warning("unknown name\n");
+		return -1;
+	}
+	if(filename == NULL) {
+		warning("unknown filename\n");
+		return -1;
+	}
+	if(value == NULL) {
+		warning("unknown value\n");
+		return -1;
+	}
+
+	FILE* fp = open_file(filename, "w+");
+	if(!fp) return -1;
+
+	char* string = create_variable_string(name, value);
+	put_str_to_file(fp, string);
+	free(string);
+
+	fclose(fp);
+	return 0;
+}
+
+int insert_to_file(char* filename, char* name, char* value) {
+	if(name == NULL) {
+		warning("unknown name\n");
+		return -1;
+	}
+	if(filename == NULL) {
+		warning("unknown filename\n");
+		return -1;
+	}
+	if(value == NULL) {
+		warning("unknown value\n");
+		return -1;
+	}
+
+	if(is_var_exists(filename, name) == 0) {
+		warning("variable with this name is exists\n");
+		return -1;
+	}
+
+	FILE* fp = open_file(filename, "a+");
+	if(!fp) return -1;
+
+	char* string = create_variable_string(name, value);
+	put_str_to_file(fp, string);
+	free(string);
+
+	fclose(fp);
+	return 0;
+}
+
+int delete_from_file(char* filename, char* name) {
+	if(filename == NULL) {
+		warning("unknown filename\n");
+		return -1;
+	}
+	if(name == NULL) {
+		warning("unknown variable name\n");
+		return -1;
+	}
+
+	if(is_var_exists(filename, name) != 0) {
+		warning("variable with this name doesn't exists\n");
+		return -1;
+	}
+
+	char* buffer = read_file_to_buffer(filename);
+	if(buffer == NULL) {
+		warning("cannot read file to buffer\n");
+		return -1;
+	}
+
+	buffer = delete_variable_from_buffer(buffer, name);
+	if(buffer == NULL) {
+		warning("cannot delete variable from buffer\n");
+		return -1;
+	}
+
+	if(write_buffer_to_file(filename, buffer) != 0) {
+		warning("cannot write buffer to file\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 int print_file(char* filename) {
 	if(filename == NULL) {
 		warning("unknown filename\n");
@@ -401,4 +393,68 @@ int print_file(char* filename) {
 
 	fclose(fp);
 	return 0;
+}
+
+int is_var_exists(char* filename, char* name) {
+	if(filename == NULL) {
+		warning("unknown filename\n");
+		return -1;
+	}
+	if(name == NULL) {
+		warning("unknown name of variable\n");
+		return -1;
+	}
+
+	FILE* fp = open_file(filename, "r");
+	if(!fp) return -1;
+
+	char* line = NULL;
+	while((line = read_line_from_file(fp)) != NULL) {
+		char* var = strtok(line, "=");
+
+		if(strcmp(var, name) == 0) {
+			free(line);
+			return 0;
+		}
+		free(line);
+		line = NULL;
+	}
+
+	return -1;
+}
+
+char* read_variable(char* filename, char* name) {
+	if(name == NULL) {
+		warning("unknown name\n");
+		return NULL;
+	}
+	if(filename == NULL) {
+		warning("unknown filename\n");
+		return NULL;
+	}
+
+	if(is_var_exists(filename, name) != 0) {
+		warning("variable with this name doesn't exists\n");
+		return NULL;
+	}
+
+	FILE* fp = open_file(filename, "r");
+	if(!fp) return NULL;
+	
+	char * line = NULL;
+	char * result = NULL;
+	while((line = read_line_from_file(fp)) != NULL) {
+		char* var = strtok(line, "=");
+		char* value = strtok(NULL, "=");
+
+		if(strcmp(name, var) == 0) {
+			result = strdup(value);
+			free(line);
+			break;
+		}
+		free(line);
+		line = NULL;
+	}
+
+	return result;
 }
