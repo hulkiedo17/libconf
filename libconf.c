@@ -60,7 +60,7 @@ static char* put_str_to_buffer(char* buffer, char* string) {
 	assert(string != NULL);
 
 	int len_buf = strlen(buffer);
-	int len_str = strlen(string) + 1;
+	int len_str = strlen(string);
 	int len_newbuf = len_buf + len_str;
 
 	char* new_buffer = malloc(len_newbuf * sizeof(char));
@@ -69,7 +69,7 @@ static char* put_str_to_buffer(char* buffer, char* string) {
 	}
 
 	strncpy(new_buffer, buffer, len_buf);
-	strncpy(new_buffer + len_buf, string, len_str);
+	strncpy(new_buffer + len_buf, string, len_str + 1);
 
 	return new_buffer;
 }
@@ -268,7 +268,7 @@ char* read_file_to_buffer(char* filename) {
 			if(position == 0 && c == EOF) {
 				free(buf);
 				fclose(fp);
-				return strdup("");
+				return NULL;
 			}
 
 			buf[position] = '\0';
@@ -306,10 +306,7 @@ int write_buffer_to_file(char* filename, char* buffer) {
 	FILE* fp = open_file(filename, "w");
 	if(!fp) return -1;
 
-	int position = 0, len = strlen(buffer);
-	while(position < len) {
-		fputc(buffer[position++], fp);
-	}
+	put_str_to_file(fp, buffer);
 
 	fclose(fp);
 	return 0;
@@ -328,10 +325,7 @@ int append_buffer_to_file(char* filename, char* buffer) {
 	FILE* fp = open_file(filename, "a");
 	if(!fp) return -1;
 
-	int position = 0, len = strlen(buffer);
-	while(position < len) {
-		fputc(buffer[position++], fp);
-	}
+	put_str_to_file(fp, buffer);
 
 	fclose(fp);
 	return 0;
@@ -351,9 +345,10 @@ char* delete_variable_from_buffer(char* buffer, char* name) {
 	int position2 = find_variable_position(buffer, name, NEXT_LINE_POS);
 	int new_buffer_size = strlen(buffer) - (position2 - position1) + 1;
 
-	if(new_buffer_size <= 0) {
+	printf("buffer = %d\n", new_buffer_size);
+	if(new_buffer_size <= 0 || new_buffer_size == 1) {
 		free(buffer);
-		return strdup("");
+		return NULL;
 	}
 
 	char* new_buffer = malloc(new_buffer_size * sizeof(char));

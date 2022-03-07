@@ -1,6 +1,12 @@
-name=value
-OS=Linux
-Arch=x86
-SHELL=bash
-SHELL=bash
 EDITOR=vim
+OS=Linux
+SHELL=bash
+ENV=xterm
+PS1=lalalal
+ARCH=x86
+USER=hulki
+
+name1=value1
+name2=value2
+name3=value3
+name4=value4
