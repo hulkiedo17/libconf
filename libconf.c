@@ -84,7 +84,7 @@ static char* copy_buffer(char* buffer) {
 	return new_buffer;
 }
 
-static char* put_str_to_buffer(char* buffer, char* string) {
+/*static char* put_str_to_buffer(char* buffer, char* string) {
 	assert(buffer != NULL);
 	assert(string != NULL);
 
@@ -101,7 +101,7 @@ static char* put_str_to_buffer(char* buffer, char* string) {
 	strncpy(new_buffer + len_buf, string, len_str + 1);
 
 	return new_buffer;
-}
+}*/
 
 static char* read_line_from_file(FILE* fp) {
 	assert(fp != NULL);
@@ -263,7 +263,7 @@ static char* delete_variable_from_buffer(char* buffer, char* name) {
 	return new_buffer;
 }
 
-static char* insert_variable_to_buffer(char* buffer, char* name, char* value) {
+/*static char* insert_variable_to_buffer(char* buffer, char* name, char* value) {
 	if(name == NULL) {
 		warning("unknown name\n");
 		return NULL;
@@ -283,7 +283,7 @@ static char* insert_variable_to_buffer(char* buffer, char* name, char* value) {
 	free(string);
 
 	return new_buffer;
-}
+}*/
 
 //////////////main-api/////////////
 

@@ -1,23 +1,17 @@
 .POSIX:
-.PHONY: all clean run
+.PHONY: all clean
 
 CC := gcc
 CFLAGS := -Wall -Werror -Wextra -Wpedantic -g -O0
 SRC := $(wildcard *.c)
 OBJ := $(SRC:.c=.o)
 HDR := $(wildcard *.h)
-EXEC := libconf
 
-all: $(EXEC)
-
-$(EXEC): $(OBJ)
-	$(CC) $^ -o $@
+all: $(OBJ)
 
 %.o: %.c $(HDR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -rf $(EXEC) $(OBJ)
+	rm -rf $(OBJ)
 
-run:
-	./$(EXEC)
