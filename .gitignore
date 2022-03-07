@@ -1,4 +1,5 @@
 *.o
-libconf
-test*.*
-temp.*
+*.a
+build/
+test
+

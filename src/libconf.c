@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <assert.h>
-#include "libconf.h"
+#include "../include/libconf.h"
 
 #define LINE_SIZE 128
 #define BUFFER_SIZE 512
