@@ -25,7 +25,7 @@ after install you can use it in your own projects with this include:
 #include <libconf.h>
 ```
 
-and on compilation, type to compiler/linked this option:
+and on compilation, type to compiler/linker this option:
 ```shell
 $ gcc [files...] -lconf [options...]
 ```
