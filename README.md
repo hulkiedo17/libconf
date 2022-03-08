@@ -6,12 +6,17 @@ this library work only on linux(ubuntu).
 
 before build you need to install: gcc, make, bash
 
-to build and install type this command:
+to build and install type this commands:
 ```shell
-$ ./build.sh
+$ ./configure.sh
+$ make
+$ sudo make install
 ```
 
-this command build library, tests, and installed library to default path
+to build tests, type this:
+```shell
+$ make test
+```
 
 # using in projects
 
