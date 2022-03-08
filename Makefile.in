@@ -1,7 +1,11 @@
-.POSIX:
+
+ifeq ($(DEBUG), TRUE)
+	CFLAGS := -Wall -Werror -Wextra -Wpedantic -g -O0
+else
+	CFLAGS := -O3
+endif
 
 CC := gcc
-CFLAGS := -Wall -Werror -Wextra -Wpedantic -g -O0
 SRC_DIR := ./src
 BIN_DIR := ./build
 INC_DIR := ./include
@@ -16,8 +20,8 @@ OBJ := $(OBJ:.c=.o)
 HDR := $(wildcard ./include/*.h)
 LIB := $(BIN_DIR)/libconf.a
 
-DEST_DIR_LIB := /usr/local/lib
-DEST_DIR_INC := /usr/local/include
+DEST_DIR_LIB := $(PREFIX)/lib
+DEST_DIR_INC := $(PREFIX)/include
 
 .PHONY: all
 all: $(LIB)
