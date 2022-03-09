@@ -3,14 +3,13 @@
 #include <string.h>
 #include <stdarg.h>
 #include <assert.h>
-#include "../include/libconf.h"
 
 #define LINE_SIZE 128
 #define BUFFER_SIZE 512
 #define CUR_LINE_POS 0
 #define NEXT_LINE_POS 1
 
-////////////misc-non-buf///////////
+//misc
 
 static void error(const char *fmt, ...) {
 	va_list ap;
@@ -55,6 +54,19 @@ static int put_str_to_file(FILE* fp, char* string) {
 	return pos;
 }
 
+static char* dup_string(char* string) {
+	assert(string != NULL);
+
+	int len = strlen(string) + 1;
+	char* dup = malloc(len * sizeof(char));
+	if(dup == NULL) {
+		error("cannot malloc string\n");
+	}
+
+	strncpy(dup, string, len);
+	return dup;
+}
+
 static char* create_variable_string(char* name, char* value) {
 	assert(name != NULL);
 	assert(value != NULL);
@@ -70,7 +82,6 @@ static char* create_variable_string(char* name, char* value) {
 	return string;
 }
 
-///////////////buffer//////////////
 static char* copy_buffer(char* buffer) {
 	assert(buffer != NULL);
 
@@ -83,25 +94,6 @@ static char* copy_buffer(char* buffer) {
 	strncpy(new_buffer, buffer, len);
 	return new_buffer;
 }
-
-/*static char* put_str_to_buffer(char* buffer, char* string) {
-	assert(buffer != NULL);
-	assert(string != NULL);
-
-	int len_buf = strlen(buffer);
-	int len_str = strlen(string);
-	int len_newbuf = len_buf + len_str;
-
-	char* new_buffer = malloc(len_newbuf * sizeof(char));
-	if(new_buffer == NULL) {
-		error("cannot malloc buffer\n");
-	}
-
-	strncpy(new_buffer, buffer, len_buf);
-	strncpy(new_buffer + len_buf, string, len_str + 1);
-
-	return new_buffer;
-}*/
 
 static char* read_line_from_file(FILE* fp) {
 	assert(fp != NULL);
@@ -263,29 +255,7 @@ static char* delete_variable_from_buffer(char* buffer, char* name) {
 	return new_buffer;
 }
 
-/*static char* insert_variable_to_buffer(char* buffer, char* name, char* value) {
-	if(name == NULL) {
-		warning("unknown name\n");
-		return NULL;
-	}
-	if(value == NULL) {
-		warning("unknown value\n");
-		return NULL;
-	}
-	if(buffer == NULL) {	
-		return create_variable_string(name, value);
-	}
-
-	char* string = create_variable_string(name, value);
-	char* new_buffer = put_str_to_buffer(buffer, string);
-
-	free(buffer);
-	free(string);
-
-	return new_buffer;
-}*/
-
-//////////////main-api/////////////
+// library api
 
 int write_to_file(char* filename, char* name, char* value) {
 	if(name == NULL) {
@@ -310,6 +280,34 @@ int write_to_file(char* filename, char* name, char* value) {
 
 	fclose(fp);
 	return 0;
+}
+
+int is_var_exists(char* filename, char* name) {
+	if(filename == NULL) {
+		warning("unknown filename\n");
+		return -1;
+	}
+	if(name == NULL) {
+		warning("unknown name of variable\n");
+		return -1;
+	}
+
+	FILE* fp = open_file(filename, "r");
+	if(!fp) return -1;
+
+	char* line = NULL;
+	while((line = read_line_from_file(fp)) != NULL) {
+		char* var = strtok(line, "=");
+
+		if(strcmp(var, name) == 0) {
+			free(line);
+			return 0;
+		}
+		free(line);
+		line = NULL;
+	}
+
+	return -1;
 }
 
 int insert_to_file(char* filename, char* name, char* value) {
@@ -395,34 +393,6 @@ int print_file(char* filename) {
 	return 0;
 }
 
-int is_var_exists(char* filename, char* name) {
-	if(filename == NULL) {
-		warning("unknown filename\n");
-		return -1;
-	}
-	if(name == NULL) {
-		warning("unknown name of variable\n");
-		return -1;
-	}
-
-	FILE* fp = open_file(filename, "r");
-	if(!fp) return -1;
-
-	char* line = NULL;
-	while((line = read_line_from_file(fp)) != NULL) {
-		char* var = strtok(line, "=");
-
-		if(strcmp(var, name) == 0) {
-			free(line);
-			return 0;
-		}
-		free(line);
-		line = NULL;
-	}
-
-	return -1;
-}
-
 char* read_variable(char* filename, char* name) {
 	if(name == NULL) {
 		warning("unknown name\n");
@@ -448,7 +418,7 @@ char* read_variable(char* filename, char* name) {
 		char* value = strtok(NULL, "=");
 
 		if(strcmp(name, var) == 0) {
-			result = strdup(value);
+			result = dup_string(value);
 			free(line);
 			break;
 		}
