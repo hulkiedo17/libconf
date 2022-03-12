@@ -121,7 +121,7 @@ static char* read_line_from_file(FILE* fp) {
 	return NULL;
 }
 
-/*static int find_line_number(char* file, char* variable) {
+static int find_line_number(char* file, char* variable) {
 	assert(file != NULL);
 	assert(variable != NULL);
 
@@ -161,45 +161,6 @@ static char* make_temp_file_path(char* file) {
 	return temp;
 }
 
-static char* get_path_file(char* file) {
-	//TODO: make strchr to find '/' symbol
-
-	char* path = getcwd(NULL, 0);
-	if(path == NULL) {
-		warning("getcwd failed\n");
-		return NULL;
-	}
-
-	char* filepath = malloc(sizeof(char) * (strlen(path) + strlen(file) + 2));
-	if(file == NULL) {
-		error("cannot malloc memory for path\n");
-	}
-
-	strcpy(filepath, path);
-	strcat(filepath, "/");
-	strcat(filepath, file);
-	free(path);
-
-	return filepath;
-}
-
-static void move_file(char* file1, char* file2) {
-	char* file1_path = get_path_file(file1);
-	char* file2_path = get_path_file(file2);
-
-	printf("file1_path = %s\n", file1_path);
-	printf("file2_path = %s\n", file2_path);
-
-	if(file_exists(file1_path)) {
-		remove(file1_path);
-	}
-	rename(file2_path, file1_path);
-	remove(file2_path);
-
-	free(file1_path);
-	free(file2_path);
-}
-
 static int write_file_without_line(char* file, int line_number) {
 	assert(file != NULL);
 
@@ -209,7 +170,7 @@ static int write_file_without_line(char* file, int line_number) {
 	char* temp_file = make_temp_file_path(file);
 	if(!temp_file) return -1;
 
-	FILE* tmp_fp = open_file(file, "a");
+	FILE* tmp_fp = open_file(temp_file, "a");
 	if(!tmp_fp) return -1;
 
 	int line_count = 1;
@@ -226,10 +187,49 @@ static int write_file_without_line(char* file, int line_number) {
 	fclose(fp);
 	fclose(tmp_fp);
 
-	//move_file(file, temp_file);
+	remove(file);
+	rename(temp_file, file);
+
 	free(temp_file);
 	return 0;
-}*/
+}
+
+static int rewrite_file_with_new_line(char* file, int line_number, char* new_line) {
+	assert(file != NULL);
+	assert(new_line != NULL);
+
+	FILE* fp = open_file(file, "r");
+	if(!fp) return -1;
+
+	char* temp_file = make_temp_file_path(file);
+	if(!temp_file) return -1;
+
+	FILE* tmp_fp = open_file(temp_file, "a");
+	if(!tmp_fp) return -1;
+
+	int line_count = 1;
+	char* line = NULL;
+	while((line = read_line_from_file(fp)) != NULL) {
+		if(line_count != line_number) {
+			write_string_to_file(tmp_fp, line);
+		} else {
+			write_string_to_file(tmp_fp, new_line);
+		}
+
+		free(line);
+		line = NULL;
+		line_count++;
+	}
+
+	fclose(fp);
+	fclose(tmp_fp);
+
+	remove(file);
+	rename(temp_file, file);
+
+	free(temp_file);
+	return 0;
+}
 
 // main library api
 
@@ -313,7 +313,7 @@ int insert_variable(char* file, char* string) {
 	return 0;
 }
 
-/*int delete_variable(char* file, char* variable) {
+int delete_variable(char* file, char* variable) {
 	assert(file != NULL);
 	assert(variable != NULL);
 
@@ -327,14 +327,41 @@ int insert_variable(char* file, char* string) {
 		return -1;
 	}
 
-	printf("line = %d\n", line_number);
 	if(write_file_without_line(file, line_number) != 0) {
 		warning("error on write file\n");
 		return -1;
 	}
 
 	return 0;
-}*/
+}
+
+int rewrite_variable(char* file, char* variable, char* new_value) {
+	assert(file != NULL);
+	assert(variable != NULL);
+	assert(new_value != NULL);
+
+	if(is_variable_exists(file, variable) != 0) {
+		warning("this variable does not exists\n");
+		return -1;
+	}
+
+	int line_number;
+	if((line_number = find_line_number(file, variable)) == -1) {
+		warning("cannot find line that contain %s variable\n", variable);
+		return -1;
+	}
+
+	char* new_variable = make_variable(variable, new_value);
+
+	if(rewrite_file_with_new_line(file, line_number, new_variable) != 0) {
+		warning("error on rewrite file\n");
+		free(new_variable);
+		return -1;
+	}
+
+	free(new_variable);
+	return 0;
+}
 
 char* get_variable(char* file, char* variable) {
 	assert(file != NULL);
