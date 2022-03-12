@@ -3,29 +3,38 @@
 #include <string.h>
 #include <stdarg.h>
 #include <assert.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #define LINE_SIZE 128
-#define BUFFER_SIZE 512
-#define CUR_LINE_POS 0
-#define NEXT_LINE_POS 1
 
-//misc
-
-static void error(const char *fmt, ...) {
+static void error(const char* fmt, ...) {
 	va_list ap;
 
 	va_start(ap, fmt);
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
+
 	exit(EXIT_FAILURE);
 }
 
-static void warning(const char *fmt, ...) {
+static void warning(const char* fmt, ...) {
 	va_list ap;
 
 	va_start(ap, fmt);
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
+}
+
+static int file_exists(char* path) {
+	struct stat buffer;
+
+	if(stat(path, &buffer) == 0) {
+		return 1;
+	}
+	return 0;
 }
 
 static FILE* open_file(char* filename, char* mode) {
@@ -41,19 +50,6 @@ static FILE* open_file(char* filename, char* mode) {
 	return fp;
 }
 
-static int put_str_to_file(FILE* fp, char* string) {
-	assert(fp != NULL);
-	assert(string != NULL);
-
-	int pos = 0, len = strlen(string);
-	while(pos < len) {
-		fputc(string[pos], fp);
-		pos++;
-	}
-
-	return pos;
-}
-
 static char* dup_string(char* string) {
 	assert(string != NULL);
 
@@ -67,32 +63,25 @@ static char* dup_string(char* string) {
 	return dup;
 }
 
-static char* create_variable_string(char* name, char* value) {
-	assert(name != NULL);
-	assert(value != NULL);
-
-	int len_str = strlen(name) + strlen(value) + 3; // +3 because =, \n, \0
-	char* string = malloc(len_str * sizeof(char));
-	if(string == NULL) {
-		error("cannot malloc string\n");
-	}
-
-	sprintf(string, "%s=%s\n", name, value);
-
-	return string;
+static char* get_name_from_string(char* string) {
+	char* temp = dup_string(string);
+	char* name = strtok(temp, "=");
+	char* res = dup_string(name);
+	free(temp);
+	return res;
 }
 
-static char* copy_buffer(char* buffer) {
-	assert(buffer != NULL);
+static int write_string_to_file(FILE* fp, char* string) {
+	assert(fp != NULL);
+	assert(string != NULL);
 
-	int len = strlen(buffer) + 1;
-	char* new_buffer = malloc(len * sizeof(char));
-	if(new_buffer == NULL) {
-		error("cannot calloc buffer\n");
+	int i = 0, len = strlen(string);
+	for(; i < len; i++) {
+		fputc(string[i], fp);
 	}
+	fputc('\n', fp);
 
-	strncpy(new_buffer, buffer, len);
-	return new_buffer;
+	return i;
 }
 
 static char* read_line_from_file(FILE* fp) {
@@ -107,7 +96,7 @@ static char* read_line_from_file(FILE* fp) {
 	while(1) {
 		c = fgetc(fp);
 
-		if(c == EOF || c == '\n'){
+		if(c == EOF || c == '\n') {
 			if(pos == 0 && c == EOF) {
 				free(line);
 				return NULL;
@@ -117,7 +106,7 @@ static char* read_line_from_file(FILE* fp) {
 		} else {
 			line[pos] = c;
 		}
-		
+
 		pos++;
 
 		if(pos >= len_line) {
@@ -132,292 +121,240 @@ static char* read_line_from_file(FILE* fp) {
 	return NULL;
 }
 
-static int find_variable_position(char* buffer, char* name, int next_line_flag) {
-	assert(buffer != NULL);
-	assert(name != NULL);
+/*static int find_line_number(char* file, char* variable) {
+	assert(file != NULL);
+	assert(variable != NULL);
 
-	int position = 0;
-	char* new_buffer = copy_buffer(buffer);
+	FILE* fp = open_file(file, "r");
+	if(!fp) return -1;
 
-	char* line = strtok(new_buffer, "\n");
-	while(line != NULL) {
-		if(strstr(line, name) != NULL) {
-			if(next_line_flag == NEXT_LINE_POS) {
-				position += strlen(line) + 1;
-			}
+	int line_count = 1;
+	char* line = NULL;
+	while((line = read_line_from_file(fp)) != NULL) {
+		char* name = strtok(line, "=");
 
-			free(new_buffer);
-			return position;
+		if(strcmp(name, variable) == 0) {
+			free(line);
+			fclose(fp);
+			return line_count;
 		}
-		position += strlen(line) + 1;
-		line = strtok(NULL, "\n");
+		free(line);
+		line = NULL;
+		line_count++;
 	}
 
-	free(new_buffer);
+	fclose(fp);
 	return -1;
 }
 
-static char* read_file_to_buffer(char* filename) {
-	if(filename == NULL) {
-		warning("unknown filename\n");
-		return NULL;
+static char* make_temp_file_path(char* file) {
+	assert(file != NULL);
+
+	char* temp = malloc(sizeof(char) * (strlen(file) + 5));
+	if(temp == NULL) {
+		error("cannot malloc temp file path\n");
 	}
-
-	int c, position = 0, bufsize = BUFFER_SIZE;
-
-	FILE* fp = open_file(filename, "r");
-	if(!fp) return NULL;
 	
-	char* buf = calloc(bufsize, sizeof(char));
-	if(buf == NULL) {
-		error("cannot calloc buffer\n");
-	}
+	strcpy(temp, file);
+	strcat(temp, ".tmp");
 
-	while(1) {
-		c = fgetc(fp);
-
-		if(c == EOF){
-			if(position == 0 && c == EOF) {
-				free(buf);
-				fclose(fp);
-				return NULL;
-			}
-
-			buf[position] = '\0';
-			fclose(fp);
-			return buf;
-		} else {
-			buf[position] = c;
-		}
-		
-		position++;
-
-		if(position >= bufsize) {
-			bufsize += BUFFER_SIZE;
-			buf = realloc(buf, bufsize);
-			if(buf == NULL) {
-				error("cannot realloc buffer\n");
-			}
-		}
-	}
-
-	fclose(fp);
-	return NULL;
+	return temp;
 }
 
-static int write_buffer_to_file(char* filename, char* buffer) {
-	if(filename == NULL) {
-		warning("unknown filename\n");
-		return -1;
-	}
-	if(buffer == NULL) {
-		warning("buffer is empty");
-		return -1;
+static char* get_path_file(char* file) {
+	//TODO: make strchr to find '/' symbol
+
+	char* path = getcwd(NULL, 0);
+	if(path == NULL) {
+		warning("getcwd failed\n");
+		return NULL;
 	}
 
-	FILE* fp = open_file(filename, "w");
+	char* filepath = malloc(sizeof(char) * (strlen(path) + strlen(file) + 2));
+	if(file == NULL) {
+		error("cannot malloc memory for path\n");
+	}
+
+	strcpy(filepath, path);
+	strcat(filepath, "/");
+	strcat(filepath, file);
+	free(path);
+
+	return filepath;
+}
+
+static void move_file(char* file1, char* file2) {
+	char* file1_path = get_path_file(file1);
+	char* file2_path = get_path_file(file2);
+
+	printf("file1_path = %s\n", file1_path);
+	printf("file2_path = %s\n", file2_path);
+
+	if(file_exists(file1_path)) {
+		remove(file1_path);
+	}
+	rename(file2_path, file1_path);
+	remove(file2_path);
+
+	free(file1_path);
+	free(file2_path);
+}
+
+static int write_file_without_line(char* file, int line_number) {
+	assert(file != NULL);
+
+	FILE* fp = open_file(file, "r");
 	if(!fp) return -1;
 
-	put_str_to_file(fp, buffer);
+	char* temp_file = make_temp_file_path(file);
+	if(!temp_file) return -1;
+
+	FILE* tmp_fp = open_file(file, "a");
+	if(!tmp_fp) return -1;
+
+	int line_count = 1;
+	char* line = NULL;
+	while((line = read_line_from_file(fp)) != NULL) {
+		if(line_count != line_number) {
+			write_string_to_file(tmp_fp, line);
+		}
+		free(line);
+		line = NULL;
+		line_count++;
+	}
 
 	fclose(fp);
+	fclose(tmp_fp);
+
+	//move_file(file, temp_file);
+	free(temp_file);
 	return 0;
-}
+}*/
 
-static char* delete_variable_from_buffer(char* buffer, char* name) {
-	if(name == NULL) {
-		warning("unknown name\n");
-		return NULL;
+// main library api
+
+char* create_file(char* path) {
+	assert(path != NULL);
+
+	if(file_exists(path)) {
+		warning("file is exists: %s\n", path);
+		return path;
 	}
-	if(buffer == NULL) {
-		warning("buffer is empty\n");
-		return NULL;
-	}
 
-	int position1 = find_variable_position(buffer, name, CUR_LINE_POS);
-	int position2 = find_variable_position(buffer, name, NEXT_LINE_POS);
-	int new_buffer_size = strlen(buffer) - (position2 - position1) + 1;
-
-	if(new_buffer_size <= 0 || new_buffer_size == 1) {
-		free(buffer);
+	int fd = open(path, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	if(fd == -1) {
+		warning("cannot create file: %s\n", path);
 		return NULL;
 	}
 
-	char* new_buffer = malloc(new_buffer_size * sizeof(char));
-	if(new_buffer == NULL) {
-		error("cannot malloc buffer\n");
-	}
-
-	strncpy(new_buffer, buffer, position1);
-	strncpy(new_buffer + position1, buffer + position2, strlen(buffer) - position2 + 1);
-
-	free(buffer);
-	return new_buffer;
+	close(fd);
+	return path;
 }
 
-// library api
+char* make_variable(char* name, char* value) {
+	assert(name != NULL);
+	assert(value != NULL);
 
-int write_to_file(char* filename, char* name, char* value) {
-	if(name == NULL) {
-		warning("unknown name\n");
-		return -1;
-	}
-	if(filename == NULL) {
-		warning("unknown filename\n");
-		return -1;
-	}
-	if(value == NULL) {
-		warning("unknown value\n");
-		return -1;
+	int len = strlen(name) + strlen(value) + 3;	// +3 because =, \n, \0
+	char* variable = malloc(len * sizeof(char));
+	if(variable == NULL) {
+		error("cannot malloc variable\n");
 	}
 
-	FILE* fp = open_file(filename, "w+");
-	if(!fp) return -1;
+	strcpy(variable, name);
+	strcat(variable, "=");
+	strcat(variable, value);
 
-	char* string = create_variable_string(name, value);
-	put_str_to_file(fp, string);
-	free(string);
-
-	fclose(fp);
-	return 0;
+	return variable;
 }
 
-int is_var_exists(char* filename, char* name) {
-	if(filename == NULL) {
-		warning("unknown filename\n");
-		return -1;
-	}
-	if(name == NULL) {
-		warning("unknown name of variable\n");
-		return -1;
-	}
+int is_variable_exists(char* file, char* variable) {
+	assert(file != NULL);
+	assert(variable != NULL);
 
-	FILE* fp = open_file(filename, "r");
+	FILE* fp = open_file(file, "r");
 	if(!fp) return -1;
 
 	char* line = NULL;
 	while((line = read_line_from_file(fp)) != NULL) {
-		char* var = strtok(line, "=");
+		char* name = strtok(line, "=");
 
-		if(strcmp(var, name) == 0) {
+		if(strcmp(name, variable) == 0) {
 			free(line);
+			fclose(fp);
 			return 0;
 		}
 		free(line);
 		line = NULL;
 	}
 
+	fclose(fp);
 	return -1;
 }
 
-int insert_to_file(char* filename, char* name, char* value) {
-	if(name == NULL) {
-		warning("unknown name\n");
-		return -1;
-	}
-	if(filename == NULL) {
-		warning("unknown filename\n");
-		return -1;
-	}
-	if(value == NULL) {
-		warning("unknown value\n");
-		return -1;
-	}
+int insert_variable(char* file, char* string) {
+	assert(file != NULL);
+	assert(string != NULL);
 
-	if(is_var_exists(filename, name) == 0) {
-		warning("variable with this name is exists\n");
+	char* name = get_name_from_string(string);
+	if(!is_variable_exists(file, name)) {
+		warning("variable %s is exists in file: %s\n", name, file);
+		free(name);
 		return -1;
 	}
+	free(name);
 
-	FILE* fp = open_file(filename, "a+");
+	FILE* fp = open_file(file, "a");
 	if(!fp) return -1;
 
-	char* string = create_variable_string(name, value);
-	put_str_to_file(fp, string);
-	free(string);
+	write_string_to_file(fp, string);
 
 	fclose(fp);
 	return 0;
 }
 
-int delete_from_file(char* filename, char* name) {
-	if(filename == NULL) {
-		warning("unknown filename\n");
-		return -1;
+/*int delete_variable(char* file, char* variable) {
+	assert(file != NULL);
+	assert(variable != NULL);
+
+	if(is_variable_exists(file, variable) != 0) {
+		return 0;
 	}
-	if(name == NULL) {
-		warning("unknown variable name\n");
+
+	int line_number;
+	if((line_number = find_line_number(file, variable)) == -1) {
+		warning("cannot find line that contain %s variable\n", variable);
 		return -1;
 	}
 
-	if(is_var_exists(filename, name) != 0) {
-		warning("variable with this name doesn't exists\n");
-		return -1;
-	}
-
-	char* buffer = read_file_to_buffer(filename);
-	if(buffer == NULL) {
-		warning("cannot read file to buffer\n");
-		return -1;
-	}
-
-	buffer = delete_variable_from_buffer(buffer, name);
-	if(buffer == NULL) {
-		warning("cannot delete variable from buffer\n");
-		return -1;
-	}
-
-	if(write_buffer_to_file(filename, buffer) != 0) {
-		warning("cannot write buffer to file\n");
+	printf("line = %d\n", line_number);
+	if(write_file_without_line(file, line_number) != 0) {
+		warning("error on write file\n");
 		return -1;
 	}
 
 	return 0;
-}
+}*/
 
-int print_file(char* filename) {
-	if(filename == NULL) {
-		warning("unknown filename\n");
-		return -1;
-	}
+char* get_variable(char* file, char* variable) {
+	assert(file != NULL);
+	assert(variable != NULL);
 
-	FILE* fp = open_file(filename, "r");
-	if(!fp) return -1;
-
-	int c;
-	while((c = fgetc(fp)) != EOF) {
-		putc(c, stdout);
-	}
-
-	fclose(fp);
-	return 0;
-}
-
-char* read_variable(char* filename, char* name) {
-	if(name == NULL) {
-		warning("unknown name\n");
-		return NULL;
-	}
-	if(filename == NULL) {
-		warning("unknown filename\n");
+	if(is_variable_exists(file, variable)) {
+		warning("variable %s doesn't exists in file: %s\n", variable, file);
 		return NULL;
 	}
 
-	if(is_var_exists(filename, name) != 0) {
-		warning("variable with this name doesn't exists\n");
-		return NULL;
-	}
-
-	FILE* fp = open_file(filename, "r");
+	FILE* fp = open_file(file, "r");
 	if(!fp) return NULL;
-	
-	char * line = NULL;
-	char * result = NULL;
+
+	char* line = NULL;
+	char* result = NULL;
 	while((line = read_line_from_file(fp)) != NULL) {
 		char* var = strtok(line, "=");
 		char* value = strtok(NULL, "=");
 
-		if(strcmp(name, var) == 0) {
+		if(strcmp(var, variable) == 0) {
 			result = dup_string(value);
 			free(line);
 			break;
@@ -426,5 +363,24 @@ char* read_variable(char* filename, char* name) {
 		line = NULL;
 	}
 
+	fclose(fp);
 	return result;
+}
+
+int show_content(char* file) {
+	assert(file != NULL);
+
+	FILE* fp = open_file(file, "r");
+	if(!fp) return -1;
+
+	char* line = NULL;
+	while((line = read_line_from_file(fp)) != NULL) {
+		printf("%s\n", line);
+
+		free(line);
+		line = NULL;
+	}
+
+	fclose(fp);
+	return 0;
 }
