@@ -231,6 +231,20 @@ static int rewrite_file_with_new_line(char* file, int line_number, char* new_lin
 	return 0;
 }
 
+static int find_amount_of_tokens_in_value(char* value, char* delim) {
+	char* val = dup_string(value);
+
+	int amount_of_tokens = 0;
+	char* token = strtok(val, delim);
+	while(token != NULL) {
+		amount_of_tokens++;
+		token = strtok(NULL, delim);
+	}
+
+	free(val);
+	return amount_of_tokens;
+}
+
 // main library api
 
 char* create_file(char* path) {
@@ -392,6 +406,73 @@ char* get_variable(char* file, char* variable) {
 
 	fclose(fp);
 	return result;
+}
+
+// *size used to set size of token, to use outside of function
+char** split_values(char* file, char* variable_name, int* size, char* delim) {
+	assert(file != NULL);
+	assert(variable_name != NULL);
+	assert(size != NULL);
+	assert(delim != NULL);
+
+	char* value = get_variable(file, variable_name);
+	if(!value) return NULL;
+
+	int amount_of_tokens = find_amount_of_tokens_in_value(value, delim);
+	char** array_of_tokens = malloc(sizeof(char*) * amount_of_tokens);
+	if(array_of_tokens == NULL) {
+		error("cannot malloc mem for array\n");
+	}
+	*size = amount_of_tokens;
+
+	int count_token = 0;
+	char* token = strtok(value, delim);
+	while(token != NULL) {
+		char* token_dup = dup_string(token);
+
+		array_of_tokens[count_token] = malloc(sizeof(char) * (strlen(token_dup) + 1));
+		if(array_of_tokens[count_token] == NULL) {
+			error("cannot malloc mem for array[%d]\n", count_token);
+		}
+
+		strncpy(array_of_tokens[count_token], token_dup, strlen(token_dup) + 1);
+
+		free(token_dup);
+		count_token++;
+		token = strtok(NULL, delim);
+	}
+
+	free(value);
+	return array_of_tokens;
+}
+
+char* get_split_from_values(char** tokens, int size, int index) {
+	assert(tokens != NULL);
+
+	if(size <= index || size < 0) {
+		return NULL;
+	}
+
+	char* value = dup_string(tokens[index]);
+
+	return value;
+}
+
+void free_split_values(char** tokens, int size) {
+	assert(tokens != NULL);
+
+	for(int i = 0; i < size; i++) {
+		free(tokens[i]);
+	}
+	free(tokens);
+}
+
+void show_split_values(char** tokens, int size) {
+	assert(tokens != NULL);
+
+	for(int i = 0; i < size; i++) {
+		printf("%s\n", tokens[i]);
+	}
 }
 
 int show_content(char* file) {
