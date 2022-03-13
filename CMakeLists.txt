@@ -18,12 +18,13 @@ if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
 	set(CMAKE_C_FLAGS_RELEASE "-std=c11 -O1")
 endif()
 
-set(LIB_OUTPUT conf)
+set(LIB conf)
 set(SOURCE src/libconf.c)
-set(HEADERS include/libconf.h)
+set(HEADER include/libconf.h)
 
-add_library(${LIB_OUTPUT} STATIC ${SOURCE})
+add_library(${LIB} STATIC ${SOURCE} ${HEADER})
+add_library(lib::conf ALIAS ${LIB})
 
-install(TARGETS ${LIB_OUTPUT} DESTINATION lib)
-install(FILES ${HEADERS} DESTINATION include)
+install(TARGETS ${LIB} DESTINATION lib)
+install(FILES ${HEADER} DESTINATION include)
 
