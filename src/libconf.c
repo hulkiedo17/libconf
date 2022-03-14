@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <pwd.h>
 
 #define LINE_SIZE 128
 
@@ -245,10 +246,50 @@ static int find_amount_of_tokens_in_value(char* value, char* delim) {
 	return amount_of_tokens;
 }
 
+static const char* get_home_dir(void) {
+	const char* home_dir = NULL;
+
+	if((home_dir = getenv("HOME")) == NULL) {
+		home_dir = getpwuid(getuid())->pw_dir;
+	}
+
+	return home_dir;
+}
+
+static char* make_path_to_file(const char* path, const char* file) {
+	assert(path != NULL);
+	assert(file != NULL);
+
+	char* file_path = malloc(sizeof(char) * (strlen(path) + strlen(file) + 2));
+	if(file_path == NULL) {
+		error("cannot malloc path to file\n");
+	}
+
+	strcpy(file_path, path);
+	strcat(file_path, "/");
+	strcat(file_path, file);
+	return file_path;
+}
+
+static int check_on_path(const char* file) {
+	if(strchr(file, '/') != NULL) {
+		return 0;
+	}
+
+	return 1;
+}
+
 // main library api
 
-char* create_file(char* path) {
-	assert(path != NULL);
+char* create_file(char* file) {
+	assert(file != NULL);
+
+	char* path = NULL;
+	if(check_on_path(file) != 0) {
+		path = make_path_to_file(get_home_dir(), file);
+	} else {
+		path = dup_string(file);
+	}
 
 	if(file_exists(path)) {
 		warning("file is exists: %s\n", path);
@@ -263,6 +304,12 @@ char* create_file(char* path) {
 
 	close(fd);
 	return path;
+}
+
+void delete_file(char* path) {
+	assert(path != NULL);
+
+	remove(path);
 }
 
 char* make_variable(char* name, char* value) {
