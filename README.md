@@ -23,4 +23,4 @@ $ gcc [files...] -lconf [options...]
 ```
 
 # help
-you can see help in build.sh with -h option.
+you can see documentation in docs/, and also type -h flag to build.sh, to see options.

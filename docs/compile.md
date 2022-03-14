@@ -18,7 +18,7 @@ $ make
 $ sudo make install
 ```
 
-or, instead of a make, you can call cmake:
+or, instead of a make, you can call cmake again:
 ```shell
 $ mkdir build && cd build
 $ cmake ..
