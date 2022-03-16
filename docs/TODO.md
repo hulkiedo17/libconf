@@ -12,4 +12,4 @@
 - [ ] get_variable_and_insert(file1, file2, var)
 
 - docs:
-- [ ] add an documentation about library usage (docs/usage.md)
+- [x] add an documentation about library usage (docs/usage.md)

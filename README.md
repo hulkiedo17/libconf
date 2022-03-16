@@ -23,6 +23,6 @@ $ gcc [files...] -lconf [options...]
 ```
 
 # documentation
-you can see descriptions about functions in docs/library.md, how to build and install library in docs/compile.md.
+you can see descriptions about functions in docs/library.md, how to build and install library in docs/compile.md, and examples of usage the library in docs/usage.md.
 
 and also type -h flag to build.sh, to see options for build library.
