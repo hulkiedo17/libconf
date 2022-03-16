@@ -11,3 +11,5 @@
 - [ ] void show_data(data)
 - [ ] get_variable_and_insert(file1, file2, var)
 
+- docs:
+- [ ] add an documentation about library usage (docs/usage.md)

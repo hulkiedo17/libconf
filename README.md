@@ -22,5 +22,7 @@ and on compilation, type to compiler/linker this option:
 $ gcc [files...] -lconf [options...]
 ```
 
-# help
-you can see documentation in docs/, and also type -h flag to build.sh, to see options.
+# documentation
+you can see descriptions about functions in docs/library.md, how to build and install library in docs/compile.md.
+
+and also type -h flag to build.sh, to see options for build library.
