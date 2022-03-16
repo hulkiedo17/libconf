@@ -279,6 +279,23 @@ static int check_on_path(const char* file) {
 	return 1;
 }
 
+static char* make_variable(char* name, char* value) {
+	assert(name != NULL);
+	assert(value != NULL);
+
+	int len = strlen(name) + strlen(value) + 3;	// +3 because =, \n, \0
+	char* var = malloc(len * sizeof(char));
+	if(var == NULL) {
+		error("cannot malloc variable\n");
+	}
+
+	strcpy(var, name);
+	strcat(var, "=");
+	strcat(var, value);
+
+	return var;
+}
+
 // main library api
 
 char* create_file(char* file) {
@@ -312,23 +329,6 @@ void delete_file(char* path) {
 	remove(path);
 }
 
-char* make_variable(char* name, char* value) {
-	assert(name != NULL);
-	assert(value != NULL);
-
-	int len = strlen(name) + strlen(value) + 3;	// +3 because =, \n, \0
-	char* variable = malloc(len * sizeof(char));
-	if(variable == NULL) {
-		error("cannot malloc variable\n");
-	}
-
-	strcpy(variable, name);
-	strcat(variable, "=");
-	strcat(variable, value);
-
-	return variable;
-}
-
 int is_variable_exists(char* file, char* variable) {
 	assert(file != NULL);
 	assert(variable != NULL);
@@ -353,23 +353,27 @@ int is_variable_exists(char* file, char* variable) {
 	return -1;
 }
 
-int insert_variable(char* file, char* string) {
+int insert_variable(char* file, char* name, char* value) {
 	assert(file != NULL);
-	assert(string != NULL);
+	assert(name != NULL);
+	assert(value != NULL);
 
-	char* name = get_name_from_string(string);
-	if(!is_variable_exists(file, name)) {
+	char* string = make_variable(name, value);
+
+	char* var_name = get_name_from_string(string);
+	if(!is_variable_exists(file, var_name)) {
 		warning("variable %s is exists in file: %s\n", name, file);
-		free(name);
+		free(var_name);
 		return -1;
 	}
-	free(name);
+	free(var_name);
 
 	FILE* fp = open_file(file, "a");
 	if(!fp) return -1;
 
 	write_string_to_file(fp, string);
 
+	free(string);
 	fclose(fp);
 	return 0;
 }

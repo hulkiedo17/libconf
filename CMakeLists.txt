@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 
 project(libconf
-	VERSION 0.3
+	VERSION 0.4
 	DESCRIPTION "libconf - small library to process config files"
 	LANGUAGES C)
 
