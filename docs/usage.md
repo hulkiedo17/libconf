@@ -36,12 +36,15 @@ int main(void) {
 
 here you create a file called test.txt then add 3 variables to it: OS, Arch, SHELL. then the contents of that file are displayed. next, you delete the SHELL variable, and overwrite the value of the OS variable. it then takes the value of the OS variable and displays it. at the end, we release the memory from the path to the file and the value of the OS variable.
 
+<!---
 # usage of split category functions
 here we have a file with this data(in the same directory as the code file):
 ```shell
 EXTENSIONS=.s:.c:.a:.o:.cpp:.S
 ```
+-->
 
+<!--
 and this code:
 ```c
 #include <stdio.h>
@@ -67,4 +70,5 @@ int main(void) {
 ```
 
 here we take the EXTENSIONS variable from the file and split it's value into tokens separated by the ":" character, and put the size of the returned array into the size variable by passing it's address to the function. then display the contents of the array with tokens. we then take a single token from the array at a certain index (in this case, .cpp has index 4), and return it from the function, which we then output. At the end we release the array with tokens and the token from memory.
+-->
 

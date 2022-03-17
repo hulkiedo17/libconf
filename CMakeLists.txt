@@ -25,6 +25,8 @@ set(HEADER include/libconf.h)
 add_library(${LIB} STATIC ${SOURCE} ${HEADER})
 add_library(lib::conf ALIAS ${LIB})
 
+target_include_directories(${LIB} PRIVATE "${CMAKE_SOURCE_DIR}/include/")
+
 install(TARGETS ${LIB} DESTINATION lib)
 install(FILES ${HEADER} DESTINATION include)
 

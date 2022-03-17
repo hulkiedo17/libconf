@@ -40,6 +40,7 @@ int show_content(char* file);
 ```
 this function outputs all variables from the file at the specified path to the output.
 
+<!---
 ## split category functions:
 this category of functions is designed to handle multiple values in one variable, separated by one specific character, for example: var=a,b,c,d,e
 
@@ -62,4 +63,4 @@ this function shows all values (tokens) in a two-dimensional array.
 void free_split_values(char** tokens, int size);
 ```
 this function frees an allocated two-dimensional array from memory.
-
+-->

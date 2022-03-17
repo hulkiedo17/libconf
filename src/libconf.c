@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <pwd.h>
+#include "libconf.h"
 
 #define LINE_SIZE 128
 
@@ -232,6 +233,7 @@ static int rewrite_file_with_new_line(char* file, int line_number, char* new_lin
 	return 0;
 }
 
+/*
 static int find_amount_of_tokens_in_value(char* value, char* delim) {
 	char* val = dup_string(value);
 
@@ -244,7 +246,7 @@ static int find_amount_of_tokens_in_value(char* value, char* delim) {
 
 	free(val);
 	return amount_of_tokens;
-}
+}*/
 
 static const char* get_home_dir(void) {
 	const char* home_dir = NULL;
@@ -459,6 +461,7 @@ char* get_variable(char* file, char* variable) {
 	return result;
 }
 
+/*
 // *size used to set size of token, to use outside of function
 char** split_values(char* file, char* variable_name, int* size, char* delim) {
 	assert(file != NULL);
@@ -524,7 +527,7 @@ void show_split_values(char** tokens, int size) {
 	for(int i = 0; i < size; i++) {
 		printf("%s\n", tokens[i]);
 	}
-}
+}*/
 
 int show_content(char* file) {
 	assert(file != NULL);
