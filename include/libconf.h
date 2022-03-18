@@ -10,6 +10,7 @@ typedef struct token {
 
 typedef struct split {
 	token_t* head;
+	char* name;
 	int size;
 } split_t;
 
@@ -20,10 +21,10 @@ int insert_variable(char* file, char* name, char* value);
 int delete_variable(char* file, char* variable);
 int rewrite_variable(char* file, char* variable, char* new_value);
 char* get_variable(char* file, char* variable);
-//char** split_values(char* file, char* variable_name, int* size, char* delim);
-//char* get_split_from_values(char** tokens, int size, int index);
-//void free_split_values(char** tokens, int size);
-//void show_split_values(char** tokens, int size);
 int show_content(char* file);
+
+split_t* split_variable(char* file, char* name, char* delim);
+void free_split(split_t* tokens);
+void print_split(split_t* tokens);
 
 #endif

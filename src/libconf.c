@@ -233,7 +233,6 @@ static int rewrite_file_with_new_line(char* file, int line_number, char* new_lin
 	return 0;
 }
 
-/*
 static int find_amount_of_tokens_in_value(char* value, char* delim) {
 	char* val = dup_string(value);
 
@@ -246,7 +245,7 @@ static int find_amount_of_tokens_in_value(char* value, char* delim) {
 
 	free(val);
 	return amount_of_tokens;
-}*/
+}
 
 static const char* get_home_dir(void) {
 	const char* home_dir = NULL;
@@ -296,6 +295,55 @@ static char* make_variable(char* name, char* value) {
 	strcat(var, value);
 
 	return var;
+}
+
+static split_t* init_split(char* name) {
+	split_t* tokens = malloc(sizeof(char) * sizeof(split_t));
+	if(!tokens) {
+		warning("cannot allocate memory for tokens\n");
+		return NULL;
+	}
+
+	tokens->head = NULL;
+	tokens->name = dup_string(name);
+	tokens->size = 0;
+
+	return tokens;
+}
+
+static token_t* make_node_token(char* string, int index) {
+	assert(string != NULL);
+
+	token_t* token = malloc(sizeof(char) * sizeof(token_t));
+	if(!token) {
+		warning("cannot allocate memory for token\n");
+		return NULL;
+	}
+
+	token->string = dup_string(string);
+	token->len = strlen(string);
+	token->index = index;
+	token->next = NULL;
+
+	return token;
+}
+
+static split_t* add_node_split(split_t* tokens, token_t* node) {
+	assert(tokens != NULL);
+	assert(node != NULL);
+
+	token_t* head = tokens->head;
+	if(head == NULL) {
+		tokens->head = node;
+		return tokens;
+	}
+
+	while(head->next != NULL) {
+		head = head->next;
+	}
+	head->next = node;
+
+	return tokens;
 }
 
 // main library api
@@ -461,73 +509,67 @@ char* get_variable(char* file, char* variable) {
 	return result;
 }
 
-/*
-// *size used to set size of token, to use outside of function
-char** split_values(char* file, char* variable_name, int* size, char* delim) {
+split_t* split_variable(char* file, char* name, char* delim) {
 	assert(file != NULL);
-	assert(variable_name != NULL);
-	assert(size != NULL);
+	assert(name != NULL);
 	assert(delim != NULL);
 
-	char* value = get_variable(file, variable_name);
-	if(!value) return NULL;
-
-	int amount_of_tokens = find_amount_of_tokens_in_value(value, delim);
-	char** array_of_tokens = malloc(sizeof(char*) * amount_of_tokens);
-	if(array_of_tokens == NULL) {
-		error("cannot malloc mem for array\n");
+	char* value = get_variable(file, name);
+	if(!value) {
+		warning("this %s variable does not exists\n", name);
+		return NULL;
 	}
-	*size = amount_of_tokens;
 
-	int count_token = 0;
+	split_t* tokens = init_split(name);
+	if(!tokens) {
+		return NULL;
+	}
+	tokens->size = find_amount_of_tokens_in_value(value, delim);
+
+	int index = 0;
+	token_t* node = NULL;
 	char* token = strtok(value, delim);
 	while(token != NULL) {
-		char* token_dup = dup_string(token);
+		node = make_node_token(token, index);
 
-		array_of_tokens[count_token] = malloc(sizeof(char) * (strlen(token_dup) + 1));
-		if(array_of_tokens[count_token] == NULL) {
-			error("cannot malloc mem for array[%d]\n", count_token);
-		}
+		tokens = add_node_split(tokens, node);
 
-		strncpy(array_of_tokens[count_token], token_dup, strlen(token_dup) + 1);
-
-		free(token_dup);
-		count_token++;
+		index++;
 		token = strtok(NULL, delim);
 	}
 
 	free(value);
-	return array_of_tokens;
+	return tokens;
 }
 
-char* get_split_from_values(char** tokens, int size, int index) {
+void free_split(split_t* tokens) {
 	assert(tokens != NULL);
 
-	if(size <= index || size < 0) {
-		return NULL;
+	token_t* head = tokens->head;
+	token_t* temp = NULL;
+
+	while(head != NULL) {
+		temp = head;
+		head = head->next;
+
+		free(temp->string);
+		free(temp);
 	}
 
-	char* value = dup_string(tokens[index]);
-
-	return value;
-}
-
-void free_split_values(char** tokens, int size) {
-	assert(tokens != NULL);
-
-	for(int i = 0; i < size; i++) {
-		free(tokens[i]);
-	}
+	free(tokens->name);
 	free(tokens);
 }
 
-void show_split_values(char** tokens, int size) {
+void print_split(split_t* tokens) {
 	assert(tokens != NULL);
 
-	for(int i = 0; i < size; i++) {
-		printf("%s\n", tokens[i]);
+	printf("name: %s\n", tokens->name);
+	token_t* head = tokens->head;
+	while(head != NULL) {
+		printf("token = %s, index = %d\n", head->string, head->index);
+		head = head->next;
 	}
-}*/
+}
 
 int show_content(char* file) {
 	assert(file != NULL);
