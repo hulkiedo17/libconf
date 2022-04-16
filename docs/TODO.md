@@ -3,7 +3,7 @@
 - code:
 - [x] add more error checks
 - [ ] make code more understandable
-- [ ] edit all code to one style
+- [x] edit all code to one style
 
 - functions:
 - [ ] data save_data_and_delete(file)
