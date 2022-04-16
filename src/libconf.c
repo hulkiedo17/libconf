@@ -12,7 +12,7 @@
 
 #define LINE_SIZE 128
 
-static void error(const char* fmt, ...) {
+/*static void error(const char* fmt, ...) {
 	va_list ap;
 
 	va_start(ap, fmt);
@@ -20,7 +20,7 @@ static void error(const char* fmt, ...) {
 	va_end(ap);
 
 	exit(EXIT_FAILURE);
-}
+}*/
 
 static void warning(const char* fmt, ...) {
 	va_list ap;
@@ -58,7 +58,8 @@ static char* dup_string(char* string) {
 	int len = strlen(string) + 1;
 	char* dup = malloc(len * sizeof(char));
 	if(dup == NULL) {
-		error("cannot malloc string\n");
+		warning("cannot malloc string\n");
+		return NULL;
 	}
 
 	strncpy(dup, string, len);
@@ -68,7 +69,12 @@ static char* dup_string(char* string) {
 static char* get_name_from_string(char* string) {
 	char* temp = dup_string(string);
 	char* name = strtok(temp, "=");
+	
 	char* res = dup_string(name);
+	/*if(res == NULL) {
+		return NULL;
+	}*/
+
 	free(temp);
 	return res;
 }
@@ -92,14 +98,15 @@ static char* read_line_from_file(FILE* fp) {
 	int c, pos = 0, len_line = LINE_SIZE;
 	char* line = calloc(len_line, sizeof(char));
 	if(line == NULL) {
-		error("cannot calloc buffer\n");
+		warning("cannot calloc buffer\n");
+		return NULL;
 	}
 
 	while(1) {
 		c = fgetc(fp);
 
 		if(c == EOF || c == '\n') {
-			if(pos == 0 && c == EOF) {
+			if(pos == 0 && (c == EOF || c == '\n')) {
 				free(line);
 				return NULL;
 			}
@@ -115,7 +122,8 @@ static char* read_line_from_file(FILE* fp) {
 			len_line += LINE_SIZE;
 			line = realloc(line, len_line);
 			if(line == NULL) {
-				error("cannot realloc buffer\n");
+				warning("cannot realloc buffer\n");
+				return NULL;
 			}
 		}
 	}
@@ -154,7 +162,8 @@ static char* make_temp_file_path(char* file) {
 
 	char* temp = malloc(sizeof(char) * (strlen(file) + 5));
 	if(temp == NULL) {
-		error("cannot malloc temp file path\n");
+		warning("cannot malloc temp file path\n");
+		return NULL;
 	}
 	
 	strcpy(temp, file);
@@ -235,6 +244,9 @@ static int rewrite_file_with_new_line(char* file, int line_number, char* new_lin
 
 static int find_amount_of_tokens_in_value(char* value, char* delim) {
 	char* val = dup_string(value);
+	if(val == NULL) {
+		return -1;
+	}
 
 	int amount_of_tokens = 0;
 	char* token = strtok(val, delim);
@@ -263,7 +275,8 @@ static char* make_path_to_file(const char* path, const char* file) {
 
 	char* file_path = malloc(sizeof(char) * (strlen(path) + strlen(file) + 2));
 	if(file_path == NULL) {
-		error("cannot malloc path to file\n");
+		warning("cannot malloc path to file\n");
+		return NULL;
 	}
 
 	strcpy(file_path, path);
@@ -287,7 +300,8 @@ static char* make_variable(char* name, char* value) {
 	int len = strlen(name) + strlen(value) + 3;	// +3 because =, \n, \0
 	char* var = malloc(len * sizeof(char));
 	if(var == NULL) {
-		error("cannot malloc variable\n");
+		warning("cannot malloc variable\n");
+		return NULL;
 	}
 
 	strcpy(var, name);
@@ -358,6 +372,10 @@ char* create_file(char* file) {
 		path = dup_string(file);
 	}
 
+	if(path == NULL) {
+		return NULL;
+	}
+
 	if(file_exists(path)) {
 		warning("file is exists: %s\n", path);
 		return path;
@@ -409,10 +427,19 @@ int insert_variable(char* file, char* name, char* value) {
 	assert(value != NULL);
 
 	char* string = make_variable(name, value);
+	if(string == NULL) {
+		return -1;
+	}
 
 	char* var_name = get_name_from_string(string);
+	if(var_name == NULL) {
+		free(string);
+		return -1;
+	}
+
 	if(!is_variable_exists(file, var_name)) {
 		warning("variable %s is exists in file: %s\n", name, file);
+		free(string);
 		free(var_name);
 		return -1;
 	}
@@ -467,6 +494,9 @@ int rewrite_variable(char* file, char* variable, char* new_value) {
 	}
 
 	char* new_variable = make_variable(variable, new_value);
+	if(new_variable == NULL) {
+		return -1;
+	}
 
 	if(rewrite_file_with_new_line(file, line_number, new_variable) != 0) {
 		warning("error on rewrite file\n");
@@ -524,13 +554,26 @@ split_t* split_variable(char* file, char* name, char* delim) {
 	if(!tokens) {
 		return NULL;
 	}
-	tokens->size = find_amount_of_tokens_in_value(value, delim);
+
+	int size;
+	if((size = find_amount_of_tokens_in_value(value, delim)) != -1) {
+		tokens->size = size;
+	} else {
+		free(value);
+		free(tokens);
+		return NULL;
+	}
 
 	int index = 0;
 	token_t* node = NULL;
 	char* token = strtok(value, delim);
 	while(token != NULL) {
 		node = make_node_token(token, index);
+		if(node == NULL) {
+			free(value);
+			free(tokens);
+			return NULL;
+		}
 
 		tokens = add_node_split(tokens, node);
 
