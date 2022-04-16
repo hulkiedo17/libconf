@@ -36,15 +36,13 @@ int main(void) {
 
 here you create a file called test.txt then add 3 variables to it: OS, Arch, SHELL. then the contents of that file are displayed. next, you delete the SHELL variable, and overwrite the value of the OS variable. it then takes the value of the OS variable and displays it. at the end, we release the memory from the path to the file and the value of the OS variable.
 
-<!---
 # usage of split category functions
 here we have a file with this data(in the same directory as the code file):
 ```shell
-EXTENSIONS=.s:.c:.a:.o:.cpp:.S
+TEST1=a|b|c|d|e
+TEST2=a.b.c.d.e
 ```
--->
 
-<!--
 and this code:
 ```c
 #include <stdio.h>
@@ -52,23 +50,29 @@ and this code:
 #include <libconf.h>
 
 int main(void) {
-	char* file = "./data.txt";
+	char* file = "test.txt";
 
-	int size = 0;	// here through size variable we get the array size
-	char** extensions = split_values(file, "EXTENSIONS", &size, ":");
-	if(extensions == NULL) { printf("this var doesn't exists"); exit(EXIT_FAILURE); }
+	// getting all tokens from TEST1 variable, with "|" delim
+	split_t* test1 = split_variable(file, "TEST1", "|");
+	if(test1 == NULL) {
+		return EXIT_FAILURE;
+	}
 
-	show_split_values(extensions, size);
+	// getting all tokens from TEST2 variable, with "." delim
+	split_t* test2 = split_variable(file, "TEST2", ".");
+	if(test2 == NULL) {
+		return EXIT_FAILURE;
+	}
 
-	char* cpp_extension = get_split_from_values(extensions, size, 4);	// 4 because .cpp have this index
-	printf("cpp = %s\n", cpp_extension);
+	print_split(test1); // output: a, b, c, d, e
+	print_split(test2); // output: a, b, c, d, e
 
-	free_split_values(extensions);
-	free(cpp_extension);
+	free_split(test1);
+	free_split(test2);
+
 	return 0;
 }
 ```
 
-here we take the EXTENSIONS variable from the file and split it's value into tokens separated by the ":" character, and put the size of the returned array into the size variable by passing it's address to the function. then display the contents of the array with tokens. we then take a single token from the array at a certain index (in this case, .cpp has index 4), and return it from the function, which we then output. At the end we release the array with tokens and the token from memory.
--->
+here we take the TEST1 and TEST2 variables from the file and split it's values into tokens that contains in linked list structure, named split_t, and display the content of lists. Then we release the lists from memory.
 

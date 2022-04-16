@@ -40,27 +40,28 @@ int show_content(char* file);
 ```
 this function outputs all variables from the file at the specified path to the output.
 
-<!---
 ## split category functions:
 this category of functions is designed to handle multiple values in one variable, separated by one specific character, for example: var=a,b,c,d,e
 
 ```c
-char** split_values(char* file, char* variable_name, int* size, char* delim);
+split_t* split_variable(char* file, char* name, char* delim);
 ```
-this function splits the value of the variable into separate values (tokens) and places them in an allocated two-dimensional array of strings (be careful when working with it). the size argument is passed the address of the variable in which the size of the array (the number of values / tokens) will be placed.
+this function splits the value of the variable into separate values (tokens) and places them in an linked list(called split_t).
 
+```c
+void free_split(split_t* tokens);
+```
+this function free an linked list (split_t) of tokens from memory.
+
+```c
+void print_split(split_t* tokens);
+```
+this function shows all tokens from linked list (split_t).
+
+<!---
 ```c
 char* get_split_from_values(char** tokens, int size, int index);
 ```
 this function takes a single value (token/string) from the array by index, if it is in the range. The value taken from the array by index is copied into the allocated string in memory and returned from the function.
-
-```c
-void show_split_values(char** tokens, int size);
-```
-this function shows all values (tokens) in a two-dimensional array.
-
-```c
-void free_split_values(char** tokens, int size);
-```
-this function frees an allocated two-dimensional array from memory.
 -->
+

@@ -12,16 +12,6 @@
 
 #define LINE_SIZE 128
 
-/*static void error(const char* fmt, ...) {
-	va_list ap;
-
-	va_start(ap, fmt);
-	vfprintf(stderr, fmt, ap);
-	va_end(ap);
-
-	exit(EXIT_FAILURE);
-}*/
-
 static void warning(const char* fmt, ...) {
 	va_list ap;
 
@@ -609,9 +599,10 @@ void print_split(split_t* tokens) {
 	printf("name: %s\n", tokens->name);
 	token_t* head = tokens->head;
 	while(head != NULL) {
-		printf("token = %s, index = %d\n", head->string, head->index);
+		printf("%s, ", head->string);
 		head = head->next;
 	}
+	printf("\n");
 }
 
 int show_content(char* file) {

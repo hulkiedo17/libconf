@@ -1,7 +1,7 @@
 # TODO list:
 
 - code:
-- [ ] add more error checks
+- [x] add more error checks
 - [ ] make code more understandable
 - [ ] edit all code to one style
 
