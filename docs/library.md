@@ -49,6 +49,11 @@ split_t* split_variable(char* file, char* name, char* delim);
 this function splits the value of the variable into separate values (tokens) and places them in an linked list(called split_t).
 
 ```c
+char* get_token_split(split_t* tokens, int index);
+```
+this function gets the token by specified index from list of tokens(split_t).
+
+```c
 void free_split(split_t* tokens);
 ```
 this function free an linked list (split_t) of tokens from memory.
@@ -57,11 +62,3 @@ this function free an linked list (split_t) of tokens from memory.
 void print_split(split_t* tokens);
 ```
 this function shows all tokens from linked list (split_t).
-
-<!---
-```c
-char* get_split_from_values(char** tokens, int size, int index);
-```
-this function takes a single value (token/string) from the array by index, if it is in the range. The value taken from the array by index is copied into the allocated string in memory and returned from the function.
--->
-

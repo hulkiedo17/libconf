@@ -24,6 +24,7 @@ char* get_variable(char* file, char* variable);
 int show_content(char* file);
 
 split_t* split_variable(char* file, char* name, char* delim);
+char* get_token_split(split_t* tokens, int index);
 void free_split(split_t* tokens);
 void print_split(split_t* tokens);
 

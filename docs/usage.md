@@ -67,12 +67,27 @@ int main(void) {
 	print_split(test1); // output: a, b, c, d, e
 	print_split(test2); // output: a, b, c, d, e
 
+	char* value1 = get_token_split(test1, 1);	// get "b" from test1 list
+	if(value1 == NULL) {
+		return EXIT_FAILURE;
+	}
+
+	char* value2 = get_token_split(test2, 3);	// get "d" from test2 list
+	if(value2 == NULL) {
+		return EXIT_FAILURE;
+	}
+
+	printf("value(1) = %s\n", value1);
+	printf("value(3) = %s\n", value2);
+
 	free_split(test1);
 	free_split(test2);
+
+	free(value1);
+	free(value2);
 
 	return 0;
 }
 ```
 
-here we take the TEST1 and TEST2 variables from the file and split it's values into tokens that contains in linked list structure, named split_t, and display the content of lists. Then we release the lists from memory.
-
+here we take the TEST1 and TEST2 variables from the file and split it's values into tokens that contains in linked list structure, named split_t, and display the content of lists. Also we getting 2 times tokens by his index, get token with 1 index from test1 and token with 3 index from test2, and then displaying them. Then we release the lists from memory.

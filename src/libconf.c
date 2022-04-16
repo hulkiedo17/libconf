@@ -350,6 +350,31 @@ static split_t* add_node_split(split_t* tokens, token_t* node) {
 	return tokens;
 }
 
+static token_t* get_token_by_id(split_t* tokens, int index) {
+	assert(tokens != NULL);
+
+	if(index < 0 || tokens->size <= index) {
+		warning("invalid index\n");
+		return NULL;
+	}
+
+	if(tokens->head == NULL) {
+		warning("list is empty\n");
+		return NULL;
+	}
+
+	token_t* node = tokens->head;
+	while(node->next != NULL) {
+		if(node->index == index) {
+			return node;
+		}
+
+		node = node->next;
+	}
+
+	return NULL;
+}
+
 // main library api
 
 char* create_file(char* file) {
@@ -573,6 +598,17 @@ split_t* split_variable(char* file, char* name, char* delim) {
 
 	free(value);
 	return tokens;
+}
+
+char* get_token_split(split_t* tokens, int index) {
+	assert(tokens != NULL);
+
+	token_t* token = NULL;
+	if((token = get_token_by_id(tokens, index)) != NULL) {
+		return dup_string(token->string);
+	}
+
+	return NULL;
 }
 
 void free_split(split_t* tokens) {
