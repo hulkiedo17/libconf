@@ -4,6 +4,8 @@
 - [x] add more error checks
 - [ ] make code more understandable
 - [x] edit all code to one style
+- [ ] add comments to header file
+- [ ] redesign library(add buffer)
 
 - functions:
 - [ ] data save_data_and_delete(file)
