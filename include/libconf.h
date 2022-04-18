@@ -1,6 +1,8 @@
 #ifndef LIBCONF_H
 #define LIBCONF_H
 
+#include <stddef.h>
+
 typedef struct lc_token {
 	char* string;
 	size_t len;
