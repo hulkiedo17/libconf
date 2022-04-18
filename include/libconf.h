@@ -1,31 +1,31 @@
 #ifndef LIBCONF_H
 #define LIBCONF_H
 
-typedef struct token {
+typedef struct lc_token {
 	char* string;
-	int len;
-	int index;
-	struct token* next;
-} token_t;
+	size_t len;
+	size_t index;
+	struct lc_token* next;
+} lc_token_t;
 
-typedef struct split {
-	token_t* head;
+typedef struct lc_split {
+	lc_token_t* head;
 	char* name;
-	int size;
-} split_t;
+	size_t size;
+} lc_split_t;
 
-char* create_file(char* file);
-void delete_file(char* path);
-int is_variable_exists(char* file, char* variable);
-int insert_variable(char* file, char* name, char* value);
-int delete_variable(char* file, char* variable);
-int rewrite_variable(char* file, char* variable, char* new_value);
-char* get_variable(char* file, char* variable);
-int show_content(char* file);
+char* lc_create_config(char* file);
+void lc_delete_config(char* path);
+int lc_var_exists(char* file, char* variable);
+int lc_insert_var(char* file, char* name, char* value);
+int lc_delete_var(char* file, char* variable);
+int lc_rewrite_var(char* file, char* variable, char* new_value);
+char* lc_get_var(char* file, char* variable);
+void lc_display_config(char* file);
 
-split_t* split_variable(char* file, char* name, char* delim);
-char* get_token_split(split_t* tokens, int index);
-void free_split(split_t* tokens);
-void print_split(split_t* tokens);
+lc_split_t* lc_split_var(char* file, char* name, char* delim);
+char* lc_get_token(lc_split_t* tokens, size_t index);
+void lc_free_split(lc_split_t* tokens);
+void lc_print_tokens(lc_split_t* tokens);
 
 #endif

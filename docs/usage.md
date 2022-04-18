@@ -6,27 +6,27 @@
 #include <libconf.h>
 
 int main(void) {
-	char* path = create_file("test.txt");
+	char* path = lc_create_config("test.txt");
 
-	insert_variable(path, "OS", "Linux");
-	insert_variable(path, "Arch", "x86");
-	insert_variable(path, "SHELL", "bash");
+	lc_insert_var(path, "OS", "Linux");
+	lc_insert_var(path, "Arch", "x86");
+	lc_insert_var(path, "SHELL", "bash");
 
-	show_content(path);
+	lc_display_config(path);
 
-	delete_variable(path, "SHELL");
+	lc_delete_var(path, "SHELL");
 
-	show_content(path);
+	lc_display_config(path);
 
-	rewrite_variable(path, "OS", "Ubuntu");
+	lc_rewrite_var(path, "OS", "Ubuntu");
 
-	show_content(path);
+	lc_display_config(path);
 
-	char* OS = get_variable(path, "OS");
+	char* OS = lc_get_var(path, "OS");
 	printf("OS = %s\n", OS);
 
 	// if you want, you can delete file
-	// delete_file(path);
+	// lc_delete_config(path);
 
 	free(path);
 	free(OS);
@@ -53,26 +53,26 @@ int main(void) {
 	char* file = "test.txt";
 
 	// getting all tokens from TEST1 variable, with "|" delim
-	split_t* test1 = split_variable(file, "TEST1", "|");
+	lc_split_t* test1 = lc_split_var(file, "TEST1", "|");
 	if(test1 == NULL) {
 		return EXIT_FAILURE;
 	}
 
 	// getting all tokens from TEST2 variable, with "." delim
-	split_t* test2 = split_variable(file, "TEST2", ".");
+	lc_split_t* test2 = lc_split_var(file, "TEST2", ".");
 	if(test2 == NULL) {
 		return EXIT_FAILURE;
 	}
 
-	print_split(test1); // output: a, b, c, d, e
-	print_split(test2); // output: a, b, c, d, e
+	lc_print_tokens(test1); // output: a, b, c, d, e
+	lc_print_tokens(test2); // output: a, b, c, d, e
 
-	char* value1 = get_token_split(test1, 1);	// get "b" from test1 list
+	char* value1 = lc_get_token(test1, 1);	// get "b" from test1 list
 	if(value1 == NULL) {
 		return EXIT_FAILURE;
 	}
 
-	char* value2 = get_token_split(test2, 3);	// get "d" from test2 list
+	char* value2 = lc_get_token(test2, 3);	// get "d" from test2 list
 	if(value2 == NULL) {
 		return EXIT_FAILURE;
 	}
@@ -80,8 +80,8 @@ int main(void) {
 	printf("value(1) = %s\n", value1);
 	printf("value(3) = %s\n", value2);
 
-	free_split(test1);
-	free_split(test2);
+	lc_free_split(test1);
+	lc_free_split(test2);
 
 	free(value1);
 	free(value2);
@@ -90,4 +90,4 @@ int main(void) {
 }
 ```
 
-here we take the TEST1 and TEST2 variables from the file and split it's values into tokens that contains in linked list structure, named split_t, and display the content of lists. Also we getting 2 times tokens by his index, get token with 1 index from test1 and token with 3 index from test2, and then displaying them. Then we release the lists from memory.
+here we take the TEST1 and TEST2 variables from the file and split it's values into tokens that contains in linked list structure, named lc_split_t, and display the content of lists. Also we getting 2 times tokens by his index, get token with 1 index from test1 and token with 3 index from test2, and then displaying them. Then we release the lists from memory.
