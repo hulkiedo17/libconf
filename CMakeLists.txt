@@ -14,7 +14,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
-	set(CMAKE_C_FLAGS_DEBUG "-std=c11 -Wall -Wextra -Werror -Wpedantic -g -O0")
+	set(CMAKE_C_FLAGS_DEBUG "-std=c11 -Wall -Wextra -Werror -Wpedantic -g -O0 -DDEBUG=1")
 	set(CMAKE_C_FLAGS_RELEASE "-std=c11 -O1")
 endif()
 
@@ -29,4 +29,3 @@ target_include_directories(${LIB} PRIVATE "${CMAKE_SOURCE_DIR}/include/")
 
 install(TARGETS ${LIB} DESTINATION lib)
 install(FILES ${HEADER} DESTINATION include)
-
