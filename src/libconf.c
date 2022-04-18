@@ -20,7 +20,7 @@
 	va_end(ap);
 }*/
 
-static size_t file_exists(char* path) {
+static size_t file_exists(const char* path) {
 	struct stat buffer;
 
 	if(stat(path, &buffer) == 0) return 1;
@@ -28,7 +28,7 @@ static size_t file_exists(char* path) {
 	return 0;
 }
 
-static FILE* open_file(char* filename, char* mode) {
+static FILE* open_file(const char* filename, const char* mode) {
 	assert(filename != NULL);
 	assert(mode != NULL);
 
@@ -41,7 +41,7 @@ static FILE* open_file(char* filename, char* mode) {
 	return fp;
 }
 
-static char* dup_string(char* string) {
+static char* dup_string(const char* string) {
 	assert(string != NULL);
 
 	size_t length = strlen(string) + 1;
@@ -55,7 +55,7 @@ static char* dup_string(char* string) {
 	return duplicate;
 }
 
-static size_t write_string_to_file(FILE* fp, char* string) {
+static size_t write_string_to_file(FILE* fp, const char* string) {
 	assert(fp != NULL);
 	assert(string != NULL);
 
@@ -108,7 +108,7 @@ static char* read_line_from_file(FILE* fp) {
 	return NULL;
 }
 
-static ssize_t find_line_number(char* file, char* variable) {
+static ssize_t find_line_number(const char* file, const char* variable) {
 	assert(file != NULL);
 	assert(variable != NULL);
 
@@ -134,7 +134,7 @@ static ssize_t find_line_number(char* file, char* variable) {
 	return -1;
 }
 
-static char* make_temp_file_path(char* filepath) {
+static char* make_temp_file_path(const char* filepath) {
 	assert(filepath != NULL);
 
 	char* temp_file = malloc(sizeof(char) * (strlen(filepath) + 5));
@@ -149,7 +149,7 @@ static char* make_temp_file_path(char* filepath) {
 	return temp_file;
 }
 
-static ssize_t write_file_without_line(char* file, size_t line_number) {
+static ssize_t write_file_without_line(const char* file, size_t line_number) {
 	assert(file != NULL);
 
 	FILE* fp = open_file(file, "r");
@@ -182,7 +182,7 @@ static ssize_t write_file_without_line(char* file, size_t line_number) {
 	return 0;
 }
 
-static ssize_t rewrite_file_with_new_line(char* file, size_t line_number, char* new_line) {
+static ssize_t rewrite_file_with_new_line(const char* file, size_t line_number, const char* new_line) {
 	assert(file != NULL);
 	assert(new_line != NULL);
 
@@ -219,7 +219,7 @@ static ssize_t rewrite_file_with_new_line(char* file, size_t line_number, char* 
 	return 0;
 }
 
-static ssize_t find_amount_of_tokens_in_value(char* value, char* delim) {
+static ssize_t find_amount_of_tokens_in_value(const char* value, const char* delim) {
 	char* duplicate_value = dup_string(value);
 	if(duplicate_value == NULL) return -1;
 
@@ -232,16 +232,6 @@ static ssize_t find_amount_of_tokens_in_value(char* value, char* delim) {
 
 	free(duplicate_value);
 	return amount_of_tokens;
-}
-
-static const char* get_home_dir(void) {
-	const char* home_dir = NULL;
-
-	if((home_dir = getenv("HOME")) == NULL) {
-		home_dir = getpwuid(getuid())->pw_dir;
-	}
-
-	return home_dir;
 }
 
 static char* make_path_to_file(const char* path, const char* file) {
@@ -266,7 +256,7 @@ static size_t check_on_path(const char* file) {
 	return 1;
 }
 
-static char* make_variable(char* name, char* value) {
+static char* make_variable(const char* name, const char* value) {
 	assert(name != NULL);
 	assert(value != NULL);
 
@@ -284,7 +274,7 @@ static char* make_variable(char* name, char* value) {
 	return variable;
 }
 
-static lc_split_t* init_split(char* name) {
+static lc_split_t* init_split(const char* name) {
 	lc_split_t* tokens = malloc(sizeof(char) * sizeof(lc_split_t));
 	if(!tokens) {
 		//warning("cannot allocate memory for tokens\n");
@@ -298,7 +288,7 @@ static lc_split_t* init_split(char* name) {
 	return tokens;
 }
 
-static lc_token_t* make_node_token(char* string, size_t index) {
+static lc_token_t* make_node_token(const char* string, size_t index) {
 	assert(string != NULL);
 
 	lc_token_t* token = malloc(sizeof(char) * sizeof(lc_token_t));
@@ -360,12 +350,14 @@ static lc_token_t* get_token_by_id(lc_split_t* tokens, size_t index) {
 
 // main library api
 
-char* lc_create_config(char* file) {
+char* lc_create_config(const char* file) {
 	assert(file != NULL);
 
 	char* filepath = NULL;
 	if(check_on_path(file) != 0) {
-		filepath = make_path_to_file(get_home_dir(), file);
+		char* cwd = getcwd(NULL, 0);
+		filepath = make_path_to_file(cwd, file);
+		free(cwd);
 	} else {
 		filepath = dup_string(file);
 	}
@@ -387,13 +379,13 @@ char* lc_create_config(char* file) {
 	return filepath;
 }
 
-void lc_delete_config(char* path) {
+void lc_delete_config(const char* path) {
 	assert(path != NULL);
 
 	remove(path);
 }
 
-int lc_var_exists(char* file, char* variable) {
+int lc_var_exists(const char* file, const char* variable) {
 	assert(file != NULL);
 	assert(variable != NULL);
 
@@ -417,7 +409,7 @@ int lc_var_exists(char* file, char* variable) {
 	return -1;
 }
 
-int lc_insert_var(char* file, char* name, char* value) {
+int lc_insert_var(const char* file, const char* name, const char* value) {
 	assert(file != NULL);
 	assert(name != NULL);
 	assert(value != NULL);
@@ -440,7 +432,7 @@ int lc_insert_var(char* file, char* name, char* value) {
 	return 0;
 }
 
-int lc_delete_var(char* file, char* variable) {
+int lc_delete_var(const char* file, const char* variable) {
 	assert(file != NULL);
 	assert(variable != NULL);
 
@@ -460,7 +452,7 @@ int lc_delete_var(char* file, char* variable) {
 	return 0;
 }
 
-int lc_rewrite_var(char* file, char* variable, char* new_value) {
+int lc_rewrite_var(const char* file, const char* variable, const char* new_value) {
 	assert(file != NULL);
 	assert(variable != NULL);
 	assert(new_value != NULL);
@@ -489,7 +481,7 @@ int lc_rewrite_var(char* file, char* variable, char* new_value) {
 	return 0;
 }
 
-char* lc_get_var(char* file, char* variable) {
+char* lc_get_var(const char* file, const char* variable) {
 	assert(file != NULL);
 	assert(variable != NULL);
 
@@ -520,7 +512,7 @@ char* lc_get_var(char* file, char* variable) {
 	return result_value;
 }
 
-void lc_display_config(char* file) {
+void lc_display_config(const char* file) {
 	assert(file != NULL);
 
 	FILE* fp = open_file(file, "r");
@@ -537,7 +529,7 @@ void lc_display_config(char* file) {
 	fclose(fp);
 }
 
-lc_split_t* lc_split_var(char* file, char* name, char* delim) {
+lc_split_t* lc_split_var(const char* file, const char* name, const char* delim) {
 	assert(file != NULL);
 	assert(name != NULL);
 	assert(delim != NULL);
