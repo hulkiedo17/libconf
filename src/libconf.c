@@ -25,26 +25,126 @@ static void warning(const char* fmt, ...) {
 #define warning(...)
 #endif
 
+/////////////////////////////////////////////
+
 static size_t file_exists(const char* path) {
 	struct stat buffer;
+
+	if(!path) return 0;
 
 	if(stat(path, &buffer) == 0) return 1;
 
 	return 0;
 }
 
-static FILE* open_file(const char* filename, const char* mode) {
-	assert(filename != NULL);
-	assert(mode != NULL);
+static FILE* open_file(const char* path, const char* mode) {
+	FILE* fp = NULL;
 
-	FILE* fp = fopen(filename, mode);
-	if(fp == NULL) {
-		warning("cannot open file\n");
-		return NULL;
-	}
+	if(!path || !mode) return NULL;
+
+	fp = fopen(path, mode);
+	if(!fp) return NULL;
 
 	return fp;
 }
+
+static char* read_file_to_buffer(FILE* fp, size_t* buflen) {
+	ssize_t length = -1;
+	char* buffer = NULL;
+
+	if(!fp || !buflen) return NULL;
+
+	// get length of file
+	if(fseek(fp, 0, SEEK_END) != 0) return NULL;
+
+	if((length = (ssize_t)ftell(fp)) == -1) return NULL;
+
+	if(fseek(fp, 0, SEEK_SET) != 0) return NULL;
+
+	*buflen = --length;
+	// alloc
+	buffer = malloc(length * sizeof(char));
+	if(!buffer) {
+		warning("buffer alloc failed\n");
+		return NULL;
+	}
+
+	// read to buf
+	if(fread(buffer, length, 1, fp) != 1) {
+		if(feof(fp)) {
+			warning("end of file error.\n");
+		} else {
+			warning("file read error.\n");
+		}
+
+		free(buffer);
+		return NULL;
+	}
+
+	return buffer;
+}
+
+static lc_config_t* create_config(void) {
+	lc_config_t* conf = malloc(sizeof(char) * sizeof(lc_config_t));
+	if(!conf) {
+		warning("error alloc config\n");
+		return NULL;
+	}
+
+	conf->buffer = NULL;
+	conf->len = 0;
+
+	return conf;
+}
+
+////////
+
+lc_config_t* lc_load_config(const char* path) {
+	char* buffer = NULL;
+	FILE* fp = NULL;
+	size_t buflen = 0;
+	lc_config_t* conf_buffer = NULL;
+
+	if(!path) return NULL;
+
+	if(file_exists(path) == 0) {
+		warning("file doesn't exists\n");
+		return NULL;
+	}
+
+	if((fp = open_file(path, "r")) == NULL) {
+		warning("failed on opening file\n");
+		return NULL;
+	}
+
+	if((buffer = read_file_to_buffer(fp, &buflen)) == NULL) {
+		fclose(fp);
+		return NULL;
+	}
+
+	if((conf_buffer = create_config()) == NULL) {
+		free(buffer);
+		fclose(fp);
+		return NULL;
+	}
+
+	conf_buffer->buffer = buffer;
+	conf_buffer->len = buflen;
+
+	if(fclose(fp) != 0) {
+		warning("failed on close file\n");
+	}
+	return conf_buffer;
+}
+
+void lc_free_config(lc_config_t* config) {
+	if(!config) return;
+
+	free(config->buffer);
+	free(config);
+}
+
+/////////////////////////////////////////////
 
 static char* dup_string(const char* string) {
 	assert(string != NULL);

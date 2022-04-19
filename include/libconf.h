@@ -3,6 +3,11 @@
 
 #include <stddef.h>
 
+typedef struct lc_config {
+	char* buffer;
+	size_t len;
+} lc_config_t;
+
 typedef struct lc_token {
 	char* string;
 	size_t len;
@@ -15,6 +20,13 @@ typedef struct lc_split {
 	char* name;
 	size_t size;
 } lc_split_t;
+
+/////////////////////////////////////////
+
+lc_config_t* lc_load_config(const char* path);
+void lc_free_config(lc_config_t* config);
+
+/////////////////////////////////////////
 
 char* lc_create_config(const char* file);
 void lc_delete_config(const char* path);
