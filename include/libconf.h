@@ -24,6 +24,7 @@ typedef struct lc_split {
 /////////////////////////////////////////
 
 lc_config_t* lc_load_config(const char* path);
+int lc_dump_config(const lc_config_t* config, const char* path);
 void lc_free_config(lc_config_t* config);
 
 /////////////////////////////////////////

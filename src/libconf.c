@@ -62,6 +62,7 @@ static char* read_file_to_buffer(FILE* fp, size_t* buflen) {
 	if(fseek(fp, 0, SEEK_SET) != 0) return NULL;
 
 	*buflen = --length;
+
 	// alloc
 	buffer = malloc(length * sizeof(char));
 	if(!buffer) {
@@ -82,6 +83,19 @@ static char* read_file_to_buffer(FILE* fp, size_t* buflen) {
 	}
 
 	return buffer;
+}
+
+static int write_buffer_to_file(FILE* fp, const char* buffer, size_t buflen) {
+	if(!fp || !buffer) return -1;
+
+	if(fwrite(buffer, buflen, 1, fp) != 1) {
+		if(ferror(fp)) {
+			warning("file read error.\n");
+		}
+		return -1;
+	}
+
+	return 0;
 }
 
 static lc_config_t* create_config(void) {
@@ -108,12 +122,12 @@ lc_config_t* lc_load_config(const char* path) {
 	if(!path) return NULL;
 
 	if(file_exists(path) == 0) {
-		warning("file doesn't exists\n");
+		warning("file doesn't exists.\n");
 		return NULL;
 	}
 
 	if((fp = open_file(path, "r")) == NULL) {
-		warning("failed on opening file\n");
+		warning("failed on opening file.\n");
 		return NULL;
 	}
 
@@ -124,7 +138,7 @@ lc_config_t* lc_load_config(const char* path) {
 
 	if((conf_buffer = create_config()) == NULL) {
 		free(buffer);
-		fclose(fp);
+		fclose(fp);	// TODO: check return value
 		return NULL;
 	}
 
@@ -132,9 +146,36 @@ lc_config_t* lc_load_config(const char* path) {
 	conf_buffer->len = buflen;
 
 	if(fclose(fp) != 0) {
-		warning("failed on close file\n");
+		warning("failed on close file.\n");
 	}
 	return conf_buffer;
+}
+
+int lc_dump_config(const lc_config_t* config, const char *path) {
+	FILE* fp = NULL;
+
+	if(!config || !path) return -1;
+
+	if(config->buffer == NULL) {
+		warning("config buffer is empty.\n");
+		return -1;
+	}
+
+	if((fp = open_file(path, "w")) == NULL) {
+		warning("failed on opening file.\n");
+		return -1;
+	}
+
+	if(write_buffer_to_file(fp, config->buffer, config->len) != 0) {
+		warning("failed on write buffer to file.\n");
+		fclose(fp);	// TODO: check return value
+		return -1;
+	}
+
+	if(fclose(fp) != 0) {
+		warning("failed on close file.\n");
+	}
+	return 0;
 }
 
 void lc_free_config(lc_config_t* config) {
