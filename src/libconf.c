@@ -27,7 +27,7 @@ static void warning(const char* fmt, ...) {
 
 /////////////////////////////////////////////
 
-static size_t file_exists(const char* path) {
+static int file_exists(const char* path) {
 	struct stat buffer;
 
 	if(!path) return 0;
@@ -46,6 +46,17 @@ static FILE* open_file(const char* path, const char* mode) {
 	if(!fp) return NULL;
 
 	return fp;
+}
+
+static char* duplicate_string(const char* string) {
+	if(!string) return NULL;
+
+	size_t length = strlen(string) + 1;
+	char* dup_string = malloc(sizeof(char) * length);
+	if(dup_string == NULL) return NULL;
+
+	memcpy(dup_string, string, length);
+	return dup_string;
 }
 
 static char* read_file_to_buffer(FILE* fp, size_t* buflen) {
@@ -98,20 +109,37 @@ static int write_buffer_to_file(FILE* fp, const char* buffer, size_t buflen) {
 	return 0;
 }
 
-static lc_config_t* create_config(void) {
-	lc_config_t* conf = malloc(sizeof(char) * sizeof(lc_config_t));
-	if(!conf) {
-		warning("error alloc config\n");
+////////
+
+lc_config_t* create_empty_config(void) {
+	lc_config_t* config = NULL;
+
+	if((config = malloc(sizeof(char) * sizeof(lc_config_t))) == NULL) {
+		warning("error alloc config.\n");
 		return NULL;
 	}
 
-	conf->buffer = NULL;
-	conf->len = 0;
+	config->buffer = NULL;
+	config->len = 0;
 
-	return conf;
+	return config;
 }
 
-////////
+lc_config_t* create_config(const char* buffer) {
+	lc_config_t* config = NULL;
+
+	if(!buffer) return NULL;
+
+	if((config = malloc(sizeof(char) * sizeof(lc_config_t))) == NULL) {
+		warning("error alloc config.\n");
+		return NULL;
+	}
+
+	config->buffer = duplicate_string(buffer);
+	config->len = strlen(buffer);
+
+	return config;
+}
 
 lc_config_t* lc_load_config(const char* path) {
 	char* buffer = NULL;
@@ -136,7 +164,7 @@ lc_config_t* lc_load_config(const char* path) {
 		return NULL;
 	}
 
-	if((conf_buffer = create_config()) == NULL) {
+	if((conf_buffer = create_empty_config()) == NULL) {
 		free(buffer);
 		fclose(fp);	// TODO: check return value
 		return NULL;
@@ -178,6 +206,19 @@ int lc_dump_config(const lc_config_t* config, const char *path) {
 	return 0;
 }
 
+void lc_print_config(const lc_config_t* config) {
+	if(!config) return;
+
+	if(config->buffer == NULL) return;
+
+	printf("config:\n");
+	for(size_t i = 0; i < config->len; i++) {
+		printf("%c", config->buffer[i]);
+	}
+
+	printf("\n");
+}
+
 void lc_free_config(lc_config_t* config) {
 	if(!config) return;
 
@@ -187,20 +228,7 @@ void lc_free_config(lc_config_t* config) {
 
 /////////////////////////////////////////////
 
-static char* dup_string(const char* string) {
-	assert(string != NULL);
-
-	size_t length = strlen(string) + 1;
-	char* duplicate = malloc(length * sizeof(char));
-	if(duplicate == NULL) {
-		warning("cannot malloc string\n");
-		return NULL;
-	}
-
-	strncpy(duplicate, string, length);
-	return duplicate;
-}
-
+/*
 static size_t write_string_to_file(FILE* fp, const char* string) {
 	assert(fp != NULL);
 	assert(string != NULL);
@@ -755,3 +783,5 @@ void lc_print_tokens(lc_split_t* tokens) {
 	}
 	printf("\n");
 }
+
+*/
