@@ -23,9 +23,10 @@ typedef struct lc_split {
 } lc_split_t;
 */
 
-lc_config_t* create_empty_config(void);
-lc_config_t* create_config(const char* buffer);
+lc_config_t* lc_create_empty_config(void);
+lc_config_t* lc_create_config(const char* buffer);
 lc_config_t* lc_load_config(const char* path);
+lc_config_t* lc_insert_config(lc_config_t* config, const char* variable, const char* value);
 int lc_dump_config(const lc_config_t* config, const char* path);
 void lc_print_config(const lc_config_t* config);
 void lc_free_config(lc_config_t* config);

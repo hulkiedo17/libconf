@@ -25,8 +25,6 @@ static void warning(const char* fmt, ...) {
 #define warning(...)
 #endif
 
-/////////////////////////////////////////////
-
 static int file_exists(const char* path) {
 	struct stat buffer;
 
@@ -109,9 +107,33 @@ static int write_buffer_to_file(FILE* fp, const char* buffer, size_t buflen) {
 	return 0;
 }
 
-////////
+static char* make_variable(const char* name, const char* value) {
+	size_t length = 0;
+	char* variable = NULL;
+	
+	if(!name || !value) return NULL;
 
-lc_config_t* create_empty_config(void) {
+	length = strlen(name) + strlen(value) + 3;	// +3 because =, \n, \0
+
+	if((variable = malloc(length * sizeof(char))) == NULL) {
+		warning("cannot malloc variable\n");
+		return NULL;
+	}
+
+	strcpy(variable, name);
+	strcat(variable, "=");
+	strcat(variable, value);
+
+	strcat(variable, "\n");
+
+	printf("DEBUG: make_var = %s", variable);
+
+	return variable;
+}
+
+// public library api
+
+lc_config_t* lc_create_empty_config(void) {
 	lc_config_t* config = NULL;
 
 	if((config = malloc(sizeof(char) * sizeof(lc_config_t))) == NULL) {
@@ -125,7 +147,7 @@ lc_config_t* create_empty_config(void) {
 	return config;
 }
 
-lc_config_t* create_config(const char* buffer) {
+lc_config_t* lc_create_config(const char* buffer) {
 	lc_config_t* config = NULL;
 
 	if(!buffer) return NULL;
@@ -164,7 +186,7 @@ lc_config_t* lc_load_config(const char* path) {
 		return NULL;
 	}
 
-	if((conf_buffer = create_empty_config()) == NULL) {
+	if((conf_buffer = lc_create_empty_config()) == NULL) {
 		free(buffer);
 		fclose(fp);	// TODO: check return value
 		return NULL;
@@ -177,6 +199,43 @@ lc_config_t* lc_load_config(const char* path) {
 		warning("failed on close file.\n");
 	}
 	return conf_buffer;
+}
+
+lc_config_t* lc_insert_config(lc_config_t* config, const char* variable, const char* value) {
+	char* new_variable = NULL;
+	size_t new_size = 0;
+	char* new_buffer = NULL;
+
+	if(!config || !variable || !value) return NULL;
+
+	if((new_variable = make_variable(variable, value)) == NULL) {
+		warning("failed on variable creation.\n");
+		return config;
+	}
+
+	if(config->buffer == NULL) {
+		config->buffer = new_variable;
+		config->len = strlen(new_variable);
+		return config;
+	}
+
+	new_size = strlen(config->buffer) + strlen(new_variable) + 1;
+	
+	if((new_buffer = malloc(sizeof(char) * new_size)) == NULL) {
+		warning("failed on allocating new buffer.\n");
+		return config;
+	}
+
+	strcpy(new_buffer, config->buffer);
+	strcat(new_buffer, new_variable);
+
+	free(config->buffer);
+	free(new_variable);
+
+	config->buffer = new_buffer;
+	config->len = strlen(new_buffer);
+
+	return config;
 }
 
 int lc_dump_config(const lc_config_t* config, const char *path) {
@@ -225,8 +284,6 @@ void lc_free_config(lc_config_t* config) {
 	free(config->buffer);
 	free(config);
 }
-
-/////////////////////////////////////////////
 
 /*
 static size_t write_string_to_file(FILE* fp, const char* string) {
@@ -428,24 +485,6 @@ static size_t check_on_path(const char* file) {
 	if(strchr(file, '/') != NULL) return 0;
 
 	return 1;
-}
-
-static char* make_variable(const char* name, const char* value) {
-	assert(name != NULL);
-	assert(value != NULL);
-
-	size_t length = strlen(name) + strlen(value) + 3;	// +3 because =, \n, \0
-	char* variable = malloc(length * sizeof(char));
-	if(variable == NULL) {
-		warning("cannot malloc variable\n");
-		return NULL;
-	}
-
-	strcpy(variable, name);
-	strcat(variable, "=");
-	strcat(variable, value);
-
-	return variable;
 }
 
 static lc_split_t* init_split(const char* name) {
