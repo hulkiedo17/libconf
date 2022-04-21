@@ -57,7 +57,7 @@ static char* duplicate_string(const char* string) {
 	return dup_string;
 }
 
-static char* read_file_to_buffer(FILE* fp, size_t* buflen) {
+static char* read_file_to_buffer(FILE* fp, ssize_t* buflen) {
 	ssize_t length = -1;
 	char* buffer = NULL;
 
@@ -69,6 +69,8 @@ static char* read_file_to_buffer(FILE* fp, size_t* buflen) {
 	if((length = (ssize_t)ftell(fp)) == -1) return NULL;
 
 	if(fseek(fp, 0, SEEK_SET) != 0) return NULL;
+
+	if(length <= 0) return duplicate_string("");
 
 	*buflen = --length;
 
@@ -96,6 +98,8 @@ static char* read_file_to_buffer(FILE* fp, size_t* buflen) {
 
 static int write_buffer_to_file(FILE* fp, const char* buffer, size_t buflen) {
 	if(!fp || !buffer) return -1;
+
+	if(buffer != NULL && buflen == 0) return 0;
 
 	if(fwrite(buffer, buflen, 1, fp) != 1) {
 		if(ferror(fp)) {
@@ -131,7 +135,7 @@ static char* make_variable(const char* name, const char* value) {
 	return variable;
 }
 
-// public library api
+// public api
 
 lc_config_t* lc_create_empty_config(void) {
 	lc_config_t* config = NULL;
@@ -141,7 +145,7 @@ lc_config_t* lc_create_empty_config(void) {
 		return NULL;
 	}
 
-	config->buffer = NULL;
+	config->buffer = duplicate_string("");
 	config->len = 0;
 
 	return config;
@@ -166,7 +170,7 @@ lc_config_t* lc_create_config(const char* buffer) {
 lc_config_t* lc_load_config(const char* path) {
 	char* buffer = NULL;
 	FILE* fp = NULL;
-	size_t buflen = 0;
+	ssize_t buflen = 0;
 	lc_config_t* conf_buffer = NULL;
 
 	if(!path) return NULL;
@@ -192,6 +196,7 @@ lc_config_t* lc_load_config(const char* path) {
 		return NULL;
 	}
 
+	free(conf_buffer->buffer);
 	conf_buffer->buffer = buffer;
 	conf_buffer->len = buflen;
 
@@ -217,17 +222,22 @@ lc_config_t* lc_insert_config(lc_config_t* config, const char* variable, const c
 		config->buffer = new_variable;
 		config->len = strlen(new_variable);
 		return config;
+	} else if(config->len == 0) {
+		free(config->buffer);
+		config->buffer = new_variable;
+		config->len = strlen(new_variable);
+		return config;
 	}
 
-	new_size = strlen(config->buffer) + strlen(new_variable) + 1;
+	new_size = config->len + strlen(new_variable) + 1;
 	
 	if((new_buffer = malloc(sizeof(char) * new_size)) == NULL) {
 		warning("failed on allocating new buffer.\n");
 		return config;
 	}
 
-	strcpy(new_buffer, config->buffer);
-	strcat(new_buffer, new_variable);
+	strncpy(new_buffer, config->buffer, config->len);
+	strncpy(new_buffer + config->len, new_variable, strlen(new_variable) + 1);
 
 	free(config->buffer);
 	free(new_variable);
@@ -243,13 +253,13 @@ int lc_dump_config(const lc_config_t* config, const char *path) {
 
 	if(!config || !path) return -1;
 
-	if(config->buffer == NULL) {
-		warning("config buffer is empty.\n");
+	if((fp = open_file(path, "w")) == NULL) {
+		warning("failed on opening file.\n");
 		return -1;
 	}
 
-	if((fp = open_file(path, "w")) == NULL) {
-		warning("failed on opening file.\n");
+	if(config->buffer == NULL || config->len == 0) {
+		fclose(fp);
 		return -1;
 	}
 
@@ -268,7 +278,10 @@ int lc_dump_config(const lc_config_t* config, const char *path) {
 void lc_print_config(const lc_config_t* config) {
 	if(!config) return;
 
-	if(config->buffer == NULL) return;
+	if(config->buffer == NULL) {
+		printf("config: empty\n");
+		return;
+	}
 
 	printf("config:\n");
 	for(size_t i = 0; i < config->len; i++) {
@@ -286,59 +299,6 @@ void lc_free_config(lc_config_t* config) {
 }
 
 /*
-static size_t write_string_to_file(FILE* fp, const char* string) {
-	assert(fp != NULL);
-	assert(string != NULL);
-
-	size_t index = 0, length = strlen(string);
-	for(; index < length; index++) {
-		fputc(string[index], fp);
-	}
-	fputc('\n', fp);
-
-	return index;
-}
-
-static char* read_line_from_file(FILE* fp) {
-	assert(fp != NULL);
-
-	int c;
-	size_t position = 0, line_length = LINE_SIZE;
-	char* line_buffer = calloc(line_length, sizeof(char));
-	if(line_buffer == NULL) {
-		warning("cannot calloc buffer\n");
-		return NULL;
-	}
-
-	while(1) {
-		c = fgetc(fp);
-
-		if(c == EOF || c == '\n') {
-			if(position == 0 && (c == EOF || c == '\n')) {
-				free(line_buffer);
-				return NULL;
-			}
-			line_buffer[position] = '\0';
-			return line_buffer;
-		} else {
-			line_buffer[position] = c;
-		}
-
-		position++;
-
-		if(position >= line_length) {
-			line_length += LINE_SIZE;
-			line_buffer = realloc(line_buffer, line_length);
-			if(line_buffer == NULL) {
-				warning("cannot realloc buffer\n");
-				return NULL;
-			}
-		}
-	}
-
-	return NULL;
-}
-
 static ssize_t find_line_number(const char* file, const char* variable) {
 	assert(file != NULL);
 	assert(variable != NULL);
@@ -622,29 +582,6 @@ int lc_var_exists(const char* file, const char* variable) {
 	return -1;
 }
 
-int lc_insert_var(const char* file, const char* name, const char* value) {
-	assert(file != NULL);
-	assert(name != NULL);
-	assert(value != NULL);
-
-	if(!lc_var_exists(file, name)) {
-		warning("variable %s is exists in file: %s\n", name, file);
-		return -1;
-	}
-
-	FILE* fp = open_file(file, "a");
-	if(!fp) return -1;
-
-	char* variable = make_variable(name, value);
-	if(variable == NULL) return -1;
-
-	write_string_to_file(fp, variable);
-
-	free(variable);
-	fclose(fp);
-	return 0;
-}
-
 int lc_delete_var(const char* file, const char* variable) {
 	assert(file != NULL);
 	assert(variable != NULL);
@@ -723,23 +660,6 @@ char* lc_get_var(const char* file, const char* variable) {
 
 	fclose(fp);
 	return result_value;
-}
-
-void lc_display_config(const char* file) {
-	assert(file != NULL);
-
-	FILE* fp = open_file(file, "r");
-	if(!fp) return;
-
-	char* line_buffer = NULL;
-	while((line_buffer = read_line_from_file(fp)) != NULL) {
-		printf("%s\n", line_buffer);
-
-		free(line_buffer);
-		line_buffer = NULL;
-	}
-
-	fclose(fp);
 }
 
 lc_split_t* lc_split_var(const char* file, const char* name, const char* delim) {
