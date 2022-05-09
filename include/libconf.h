@@ -1,48 +1,72 @@
 #ifndef LIBCONF_H
 #define LIBCONF_H
 
-#include <stddef.h>
+#define LINE_SIZE 256
+#define LC_SUCCESS 0
+#define LC_ERROR 1
 
-typedef struct lc_config {
-	char* buffer;
-	size_t len;
+enum _lc_config_error
+{
+	LC_ERR_NONE = 0,
+	LC_ERR_EMPTY = 1,
+	LC_ERR_FILE_NO = 2,
+	LC_ERR_MEMORY_NO = 3,
+	LC_ERR_WRITE_NO = 4,
+	LC_ERR_NOT_EXISTS = 5
+};
+
+typedef enum lc_existence
+{
+	LC_EF_ERROR = 0,
+	LC_EF_EXISTS = 1,
+	LC_EF_NOT_EXISTS = 2
+} lc_existence_t;
+
+/*struct _lc_config_variable
+{
+	char * name;
+	char * value;
+};*/
+
+struct _lc_config_list
+{
+	char *line;
+	//struct _lc_config_variable *variable;
+	struct _lc_config_list *next;
+};
+
+typedef struct lc_config
+{
+	struct _lc_config_list *list;
+	size_t list_count;
+	enum _lc_config_error error_type;
 } lc_config_t;
 
-/*
-typedef struct lc_token {
-	char* string;
-	size_t len;
-	size_t index;
-	struct lc_token* next;
-} lc_token_t;
 
-typedef struct lc_split {
-	lc_token_t* head;
-	char* name;
-	size_t size;
-} lc_split_t;
-*/
+// basic functions for init and clear config
+void lc_init_config(lc_config_t *config);
 
-lc_config_t* lc_create_empty_config(void);
-lc_config_t* lc_create_config(const char* buffer);
-lc_config_t* lc_load_config(const char* path);
-lc_config_t* lc_insert_config(lc_config_t* config, const char* variable, const char* value);
-int lc_dump_config(const lc_config_t* config, const char* path);
-void lc_print_config(const lc_config_t* config);
-void lc_free_config(lc_config_t* config);
+void lc_clear_config(lc_config_t *config);
 
-/*
-char* lc_create_config(const char* file);
-void lc_delete_config(const char* path);
-int lc_var_exists(const char* file, const char* variable);
-int lc_delete_var(const char* file, const char* variable);
-int lc_rewrite_var(const char* file, const char* variable, const char* new_value);
-char* lc_get_var(const char* file, const char* variable);
 
-lc_split_t* lc_split_var(const char* file, const char* name, const char* delim);
-char* lc_get_token(lc_split_t* tokens, size_t index);
-void lc_free_split(lc_split_t* tokens);
-void lc_print_tokens(lc_split_t* tokens);
-*/
+// io functions for config
+int lc_load_config(lc_config_t *config, const char *filename);
+
+int lc_dump_config(lc_config_t *config, const char *filename);
+
+void lc_print_config(const lc_config_t *config);
+
+
+// functions for editing variables in config 
+int lc_add_variable(lc_config_t *config, const char *name, const char *value);
+
+int lc_delete_variable(lc_config_t *config, const char *name);
+
+lc_existence_t lc_is_variable_in_config(lc_config_t *config, const char *name);
+
+int lc_set_variable(lc_config_t *config, const char *name, const char *new_value);
+
+char* lc_get_value(lc_config_t *config, const char *name);
+
 
 #endif

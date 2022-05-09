@@ -1,746 +1,644 @@
-#include <assert.h>
-#include <fcntl.h>
-#include <pwd.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
+#include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <unistd.h>
-
 #include "libconf.h"
 
-#define LINE_SIZE 128
+static int _file_exists(const char *path)
+{
+	assert(path != NULL);
 
-#if defined DEBUG
-static void warning(const char* fmt, ...) {
-	va_list ap;
-
-	va_start(ap, fmt);
-	vfprintf(stderr, fmt, ap);
-	va_end(ap);
-}
-#else
-#define warning(...)
-#endif
-
-static int file_exists(const char* path) {
 	struct stat buffer;
 
-	if(!path) return 0;
-
-	if(stat(path, &buffer) == 0) return 1;
-
-	return 0;
+	return stat(path, &buffer);
 }
 
-static FILE* open_file(const char* path, const char* mode) {
-	FILE* fp = NULL;
+static FILE* _file_open(const char *filename, const char *mode)
+{
+	assert(filename != NULL);
+	assert(mode != NULL);
 
-	if(!path || !mode) return NULL;
-
-	fp = fopen(path, mode);
-	if(!fp) return NULL;
+	FILE *fp = fopen(filename, mode);
+	
+	if(fp == NULL)
+		return NULL;
 
 	return fp;
 }
 
-static char* duplicate_string(const char* string) {
-	if(!string) return NULL;
+static char* _duplicate_string(const char *string)
+{
+	assert(string != NULL);
 
 	size_t length = strlen(string) + 1;
-	char* dup_string = malloc(sizeof(char) * length);
-	if(dup_string == NULL) return NULL;
 
-	memcpy(dup_string, string, length);
-	return dup_string;
+	char *duplicate = calloc(length, sizeof(char));
+	if(duplicate == NULL)
+		return NULL;
+
+	memcpy(duplicate, string, length);
+
+	return duplicate;
 }
 
-static char* read_file_to_buffer(FILE* fp, ssize_t* buflen) {
-	ssize_t length = -1;
-	char* buffer = NULL;
+static char* _get_name_from_variable(const char *line)
+{
+	assert(line != NULL);
 
-	if(!fp || !buflen) return NULL;
+	char *dup_line = _duplicate_string(line);
+	if(dup_line == NULL)
+		return NULL;
 
-	// get length of file
-	if(fseek(fp, 0, SEEK_END) != 0) return NULL;
+	char *variable_name = strtok(dup_line, "=");
 
-	if((length = (ssize_t)ftell(fp)) == -1) return NULL;
-
-	if(fseek(fp, 0, SEEK_SET) != 0) return NULL;
-
-	if(length <= 0) return duplicate_string("");
-
-	*buflen = --length;
-
-	// alloc
-	buffer = malloc(length * sizeof(char));
-	if(!buffer) {
-		warning("buffer alloc failed\n");
+	char *name = _duplicate_string(variable_name);
+	if(name == NULL)
+	{
+		free(dup_line);
 		return NULL;
 	}
 
-	// read to buf
-	if(fread(buffer, length, 1, fp) != 1) {
-		if(feof(fp)) {
-			warning("end of file error.\n");
-		} else {
-			warning("file read error.\n");
-		}
+	free(dup_line);
+	return name;
+}
 
-		free(buffer);
+static char* _get_value_from_variable(const char *line)
+{
+	assert(line != NULL);
+
+	char *dup_line = _duplicate_string(line);
+	if(dup_line == NULL)
+		return NULL;
+
+	strtok(dup_line, "=");
+
+	char *variable_value = strtok(NULL, "=");
+
+	char *value = _duplicate_string(variable_value);
+	if(value == NULL)
+	{
+		free(dup_line);
 		return NULL;
 	}
 
-	return buffer;
+	free(dup_line);
+	return value;
 }
 
-static int write_buffer_to_file(FILE* fp, const char* buffer, size_t buflen) {
-	if(!fp || !buffer) return -1;
+/*static struct _lc_config_variable* _make_variable2(const char *name, const char *value)
+{
+	struct _lc_config_variable *new_variable = NULL;
 
-	if(buffer != NULL && buflen == 0) return 0;
-
-	if(fwrite(buffer, buflen, 1, fp) != 1) {
-		if(ferror(fp)) {
-			warning("file read error.\n");
-		}
-		return -1;
-	}
-
-	return 0;
-}
-
-static char* make_variable(const char* name, const char* value) {
-	size_t length = 0;
-	char* variable = NULL;
-	
-	if(!name || !value) return NULL;
-
-	length = strlen(name) + strlen(value) + 3;	// +3 because =, \n, \0
-
-	if((variable = malloc(length * sizeof(char))) == NULL) {
-		warning("cannot malloc variable\n");
+	new_variable = malloc(sizeof(struct _lc_config_variable));
+	if(new_variable == NULL)
+	{
+		perror("malloc");
 		return NULL;
 	}
 
-	strcpy(variable, name);
-	strcat(variable, "=");
-	strcat(variable, value);
+	new_variable->name = _duplicate_string(name);
+	new_variable->value = _duplicate_string(value);
 
-	strcat(variable, "\n");
+	return new_variable;
+}*/
 
-	printf("DEBUG: make_var = %s", variable);
+static char* _make_variable(const char *name, const char *value)
+{
+	assert(name != NULL);
+	assert(value != NULL);
+
+	size_t length = strlen(name) + strlen(value) + 2; // '=' and '\0'
+
+	char *variable = calloc(length, sizeof(char));
+	if(variable == NULL)
+		return NULL;
+
+	memcpy(variable, name, strlen(name));
+	memcpy(variable + strlen(name), "=", 1);
+	memcpy(variable + strlen(name) + 1, value, strlen(value));
 
 	return variable;
 }
 
-// public api
 
-lc_config_t* lc_create_empty_config(void) {
-	lc_config_t* config = NULL;
+static char* _read_line_from_file(FILE *fp)
+{
+	assert(fp != NULL);
 
-	if((config = malloc(sizeof(char) * sizeof(lc_config_t))) == NULL) {
-		warning("error alloc config.\n");
+	size_t line_length = LINE_SIZE;
+
+	char *line_buffer = calloc(line_length, sizeof(char));
+	if(line_buffer == NULL)
+	{
+		perror("calloc");
 		return NULL;
 	}
 
-	config->buffer = duplicate_string("");
-	config->len = 0;
+	int c;
+	size_t position = 0;
 
-	return config;
-}
+	while(1)
+	{
+		c = fgetc(fp);
 
-lc_config_t* lc_create_config(const char* buffer) {
-	lc_config_t* config = NULL;
+		if(c == EOF || c == '\n')
+		{
+			if(position == 0 && (c == EOF || c == '\n'))
+			{
+				free(line_buffer);
+				return NULL;
+			}
 
-	if(!buffer) return NULL;
-
-	if((config = malloc(sizeof(char) * sizeof(lc_config_t))) == NULL) {
-		warning("error alloc config.\n");
-		return NULL;
-	}
-
-	config->buffer = duplicate_string(buffer);
-	config->len = strlen(buffer);
-
-	return config;
-}
-
-lc_config_t* lc_load_config(const char* path) {
-	char* buffer = NULL;
-	FILE* fp = NULL;
-	ssize_t buflen = 0;
-	lc_config_t* conf_buffer = NULL;
-
-	if(!path) return NULL;
-
-	if(file_exists(path) == 0) {
-		warning("file doesn't exists.\n");
-		return NULL;
-	}
-
-	if((fp = open_file(path, "r")) == NULL) {
-		warning("failed on opening file.\n");
-		return NULL;
-	}
-
-	if((buffer = read_file_to_buffer(fp, &buflen)) == NULL) {
-		fclose(fp);
-		return NULL;
-	}
-
-	if((conf_buffer = lc_create_empty_config()) == NULL) {
-		free(buffer);
-		fclose(fp);	// TODO: check return value
-		return NULL;
-	}
-
-	free(conf_buffer->buffer);
-	conf_buffer->buffer = buffer;
-	conf_buffer->len = buflen;
-
-	if(fclose(fp) != 0) {
-		warning("failed on close file.\n");
-	}
-	return conf_buffer;
-}
-
-lc_config_t* lc_insert_config(lc_config_t* config, const char* variable, const char* value) {
-	char* new_variable = NULL;
-	size_t new_size = 0;
-	char* new_buffer = NULL;
-
-	if(!config || !variable || !value) return NULL;
-
-	if((new_variable = make_variable(variable, value)) == NULL) {
-		warning("failed on variable creation.\n");
-		return config;
-	}
-
-	if(config->buffer == NULL) {
-		config->buffer = new_variable;
-		config->len = strlen(new_variable);
-		return config;
-	} else if(config->len == 0) {
-		free(config->buffer);
-		config->buffer = new_variable;
-		config->len = strlen(new_variable);
-		return config;
-	}
-
-	new_size = config->len + strlen(new_variable) + 1;
-	
-	if((new_buffer = malloc(sizeof(char) * new_size)) == NULL) {
-		warning("failed on allocating new buffer.\n");
-		return config;
-	}
-
-	strncpy(new_buffer, config->buffer, config->len);
-	strncpy(new_buffer + config->len, new_variable, strlen(new_variable) + 1);
-
-	free(config->buffer);
-	free(new_variable);
-
-	config->buffer = new_buffer;
-	config->len = strlen(new_buffer);
-
-	return config;
-}
-
-int lc_dump_config(const lc_config_t* config, const char *path) {
-	FILE* fp = NULL;
-
-	if(!config || !path) return -1;
-
-	if((fp = open_file(path, "w")) == NULL) {
-		warning("failed on opening file.\n");
-		return -1;
-	}
-
-	if(config->buffer == NULL || config->len == 0) {
-		fclose(fp);
-		return -1;
-	}
-
-	if(write_buffer_to_file(fp, config->buffer, config->len) != 0) {
-		warning("failed on write buffer to file.\n");
-		fclose(fp);	// TODO: check return value
-		return -1;
-	}
-
-	if(fclose(fp) != 0) {
-		warning("failed on close file.\n");
-	}
-	return 0;
-}
-
-void lc_print_config(const lc_config_t* config) {
-	if(!config) return;
-
-	if(config->buffer == NULL) {
-		printf("config: empty\n");
-		return;
-	}
-
-	printf("config:\n");
-	for(size_t i = 0; i < config->len; i++) {
-		printf("%c", config->buffer[i]);
-	}
-
-	printf("\n");
-}
-
-void lc_free_config(lc_config_t* config) {
-	if(!config) return;
-
-	free(config->buffer);
-	free(config);
-}
-
-/*
-static ssize_t find_line_number(const char* file, const char* variable) {
-	assert(file != NULL);
-	assert(variable != NULL);
-
-	FILE* fp = open_file(file, "r");
-	if(!fp) return -1;
-
-	size_t line_count = 1;
-	char* line_buffer = NULL;
-	while((line_buffer = read_line_from_file(fp)) != NULL) {
-		char* value = strtok(line_buffer, "=");
-
-		if(strcmp(value, variable) == 0) {
-			free(line_buffer);
-			fclose(fp);
-			return line_count;
+			line_buffer[position] = '\0';
+			return line_buffer;
 		}
-		free(line_buffer);
-		line_buffer = NULL;
-		line_count++;
-	}
-
-	fclose(fp);
-	return -1;
-}
-
-static char* make_temp_file_path(const char* filepath) {
-	assert(filepath != NULL);
-
-	char* temp_file = malloc(sizeof(char) * (strlen(filepath) + 5));
-	if(temp_file == NULL) {
-		warning("cannot malloc temp file path\n");
-		return NULL;
-	}
-
-	strcpy(temp_file, filepath);
-	strcat(temp_file, ".tmp");
-
-	return temp_file;
-}
-
-static ssize_t write_file_without_line(const char* file, size_t line_number) {
-	assert(file != NULL);
-
-	FILE* fp = open_file(file, "r");
-	if(!fp) return -1;
-
-	char* temp_file = make_temp_file_path(file);
-	if(!temp_file) return -1;
-
-	FILE* temp_fp = open_file(temp_file, "a");
-	if(!temp_fp) return -1;
-
-	size_t line_count = 1;
-	char* line_buffer = NULL;
-	while((line_buffer = read_line_from_file(fp)) != NULL) {
-		if(line_count != line_number) {
-			write_string_to_file(temp_fp, line_buffer);
-		}
-		free(line_buffer);
-		line_buffer = NULL;
-		line_count++;
-	}
-
-	fclose(fp);
-	fclose(temp_fp);
-
-	remove(file);
-	rename(temp_file, file);
-
-	free(temp_file);
-	return 0;
-}
-
-static ssize_t rewrite_file_with_new_line(const char* file, size_t line_number, const char* new_line) {
-	assert(file != NULL);
-	assert(new_line != NULL);
-
-	FILE* fp = open_file(file, "r");
-	if(!fp) return -1;
-
-	char* temp_file = make_temp_file_path(file);
-	if(!temp_file) return -1;
-
-	FILE* temp_fp = open_file(temp_file, "a");
-	if(!temp_fp) return -1;
-
-	size_t line_count = 1;
-	char* line_buffer = NULL;
-	while((line_buffer = read_line_from_file(fp)) != NULL) {
-		if(line_count != line_number) {
-			write_string_to_file(temp_fp, line_buffer);
-		} else {
-			write_string_to_file(temp_fp, new_line);
+		else
+		{
+			line_buffer[position] = c;
 		}
 
-		free(line_buffer);
-		line_buffer = NULL;
-		line_count++;
-	}
+		position++;
 
-	fclose(fp);
-	fclose(temp_fp);
-
-	remove(file);
-	rename(temp_file, file);
-
-	free(temp_file);
-	return 0;
-}
-
-static ssize_t find_amount_of_tokens_in_value(const char* value, const char* delim) {
-	char* duplicate_value = dup_string(value);
-	if(duplicate_value == NULL) return -1;
-
-	size_t amount_of_tokens = 0;
-	char* token = strtok(duplicate_value, delim);
-	while(token != NULL) {
-		amount_of_tokens++;
-		token = strtok(NULL, delim);
-	}
-
-	free(duplicate_value);
-	return amount_of_tokens;
-}
-
-static char* make_path_to_file(const char* path, const char* file) {
-	assert(path != NULL);
-	assert(file != NULL);
-
-	char* file_path = malloc(sizeof(char) * (strlen(path) + strlen(file) + 2));
-	if(file_path == NULL) {
-		warning("cannot malloc path to file\n");
-		return NULL;
-	}
-
-	strcpy(file_path, path);
-	strcat(file_path, "/");
-	strcat(file_path, file);
-	return file_path;
-}
-
-static size_t check_on_path(const char* file) {
-	if(strchr(file, '/') != NULL) return 0;
-
-	return 1;
-}
-
-static lc_split_t* init_split(const char* name) {
-	lc_split_t* tokens = malloc(sizeof(char) * sizeof(lc_split_t));
-	if(!tokens) {
-		warning("cannot allocate memory for tokens\n");
-		return NULL;
-	}
-
-	tokens->head = NULL;
-	tokens->name = dup_string(name);
-	tokens->size = 0;
-
-	return tokens;
-}
-
-static lc_token_t* make_node_token(const char* string, size_t index) {
-	assert(string != NULL);
-
-	lc_token_t* token = malloc(sizeof(char) * sizeof(lc_token_t));
-	if(!token) {
-		warning("cannot allocate memory for token\n");
-		return NULL;
-	}
-
-	token->string = dup_string(string);
-	token->len = strlen(string);
-	token->index = index;
-	token->next = NULL;
-
-	return token;
-}
-
-static lc_split_t* add_node_split(lc_split_t* tokens, lc_token_t* node) {
-	assert(tokens != NULL);
-	assert(node != NULL);
-
-	lc_token_t* head = tokens->head;
-	if(head == NULL) {
-		tokens->head = node;
-		return tokens;
-	}
-
-	while(head->next != NULL) {
-		head = head->next;
-	}
-	head->next = node;
-
-	return tokens;
-}
-
-static lc_token_t* get_token_by_id(lc_split_t* tokens, size_t index) {
-	assert(tokens != NULL);
-
-	if(tokens->size <= index) {
-		warning("invalid index\n");
-		return NULL;
-	}
-
-	if(tokens->head == NULL) {
-		warning("list is empty\n");
-		return NULL;
-	}
-
-	lc_token_t* node = tokens->head;
-	while(node->next != NULL) {
-		if(node->index == index) {
-			return node;
+		if(position >= line_length)
+		{
+			line_length += LINE_SIZE;
+			line_buffer = realloc(line_buffer, line_length);
+			if(line_buffer == NULL)
+			{
+				perror("realloc");
+				return NULL;
+			}
 		}
-
-		node = node->next;
 	}
 
 	return NULL;
+}
+
+static int _write_line_to_file(FILE *fp, const char *line)
+{
+	assert(fp != NULL);
+	assert(line != NULL);
+
+	if(fwrite(line, 1, strlen(line), fp) != strlen(line))
+		return LC_ERROR;
+
+	if(fwrite("\n", 1, 1, fp) != 1)
+		return LC_ERROR;
+
+	return LC_SUCCESS;
+}
+
+// config list api
+
+static struct _lc_config_list* _create_list_element(const char *line)
+{
+	assert(line != NULL);
+
+	struct _lc_config_list *element = NULL;
+
+	element = malloc(sizeof(struct _lc_config_list));
+	if(element == NULL)
+		return NULL;
+
+	element->line = _duplicate_string(line);
+	if(element->line == NULL)
+	{
+		free(element);
+		return NULL;
+	}
+
+	element->next = NULL;
+
+	return element;
+}
+
+static int _add_list_element(lc_config_t *config, const char *line)
+{
+	assert(config != NULL);
+	assert(line != NULL);
+
+	struct _lc_config_list *element = NULL;
+
+	element = _create_list_element(line);
+	if(element == NULL)
+	{
+		config->error_type = LC_ERR_MEMORY_NO;
+		return LC_ERROR;
+	}
+
+	if(config->list == NULL)
+	{
+		config->list = element;
+		config->error_type = LC_ERR_NONE;
+		config->list_count++;
+		return LC_SUCCESS;
+	}
+
+	struct _lc_config_list *temp = config->list;
+	while(temp->next != NULL)
+		temp = temp->next;
+
+	temp->next = element;
+
+	config->error_type = LC_ERR_NONE;
+	config->list_count++;
+	return LC_SUCCESS;
+}
+
+static int _delete_list_element(lc_config_t *config, const char *line)
+{
+	assert(config != NULL);
+	assert(line != NULL);
+
+	struct _lc_config_list *prev = config->list;
+	struct _lc_config_list *head = config->list;
+	struct _lc_config_list *temp = NULL;
+
+	if(strcmp(head->line, line) == 0)
+	{
+		temp = head;
+		config->list = config->list->next;
+
+		free(temp->line);
+		free(temp);
+
+		config->error_type = LC_ERR_NONE;
+		config->list_count--;
+		return LC_SUCCESS;
+	}
+
+	if(head->next == NULL)
+	{
+		config->error_type = LC_ERR_NOT_EXISTS;
+		return LC_ERROR;
+	}
+
+	while(head != NULL)
+	{
+		if(strcmp(head->line, line) == 0)
+		{
+			temp = head;
+			prev->next = head->next;
+
+			free(temp->line);
+			free(temp);
+
+			config->error_type = LC_ERR_NONE;
+			config->list_count--;
+			return LC_SUCCESS;
+		}
+
+		prev = head;
+		head = head->next;
+	}
+
+	config->error_type = LC_ERR_NOT_EXISTS;
+	return LC_ERROR;
+}
+
+static void _delete_list(struct _lc_config_list *list)
+{
+	if(list == NULL)
+		return;
+
+	struct _lc_config_list *head = list;
+	struct _lc_config_list *temp = NULL;
+
+	while(head != NULL)
+	{
+		temp = head;
+		head = head->next;
+
+		free(temp->line);
+		free(temp);
+	}
+}
+
+static struct _lc_config_list* _find_list_element(lc_config_t *config, const char *name)
+{
+	assert(config != NULL);
+	assert(name != NULL);
+
+	char *variable_name = NULL;
+	struct _lc_config_list *head = config->list;
+
+	while(head != NULL)
+	{
+		if((variable_name = _get_name_from_variable(head->line)) == NULL)
+		{
+			config->error_type = LC_ERR_MEMORY_NO;
+			return NULL;
+		}
+
+		if(strcmp(variable_name, name) == 0)
+		{
+			free(variable_name);
+			config->error_type = LC_ERR_NONE;
+			return head;
+		}
+
+		free(variable_name);
+		head = head->next;
+	}
+
+	config->error_type = LC_ERR_NOT_EXISTS;
+	return NULL;
+}
+
+static int _rewrite_list_element(lc_config_t *config, const char *name, const char *new_line)
+{
+	assert(config != NULL);
+	assert(name != NULL);
+	assert(new_line != NULL);
+
+	char *temp_line = NULL;
+	struct _lc_config_list *element = NULL;
+
+	if((element = _find_list_element(config, name)) == NULL)
+		return LC_ERROR;
+
+	if((temp_line = _duplicate_string(new_line)) == NULL)
+	{
+		config->error_type = LC_ERR_MEMORY_NO;
+		return LC_ERROR;
+	}
+
+	free(element->line);
+	element->line = temp_line;
+
+	config->error_type = LC_ERR_NONE;
+	return LC_SUCCESS;
+}
+
+static void _print_list(struct _lc_config_list *list)
+{
+	assert(list != NULL);
+
+	struct _lc_config_list *head = list;
+
+	while(head != NULL)
+	{
+		printf("%s\n", head->line);
+		head = head->next;
+	}
+	printf("\n");
+}
+
+// main io functions
+
+static int _read_file_to_config(lc_config_t *config, FILE *fp)
+{
+	assert(config != NULL);
+	assert(fp != NULL);
+
+	char *line = NULL;
+
+	while((line = _read_line_from_file(fp)) != NULL)
+	{
+		if(_add_list_element(config, line) == LC_ERROR)
+		{
+			free(line);
+			return LC_ERROR;
+		}
+
+		free(line);
+	}
+
+	return LC_SUCCESS;
+}
+
+static int _dump_config_to_file(lc_config_t *config, FILE *fp)
+{
+	assert(config != NULL);
+	assert(fp != NULL);
+
+	if(config->list == NULL)
+	{
+		config->error_type = LC_ERR_EMPTY;
+		return LC_ERROR;
+	}
+
+	struct _lc_config_list *head = config->list;
+
+	while(head != NULL)
+	{
+		if(_write_line_to_file(fp, head->line) == LC_ERROR)
+		{
+			config->error_type = LC_ERR_WRITE_NO;
+			return LC_ERROR;
+		}
+
+		head = head->next;
+	}
+
+	return LC_SUCCESS;
 }
 
 // main library api
 
-char* lc_create_config(const char* file) {
-	assert(file != NULL);
+void lc_init_config(lc_config_t *config)
+{
+	assert(config != NULL);
 
-	char* filepath = NULL;
-	if(check_on_path(file) != 0) {
-		char* cwd = getcwd(NULL, 0);
-		filepath = make_path_to_file(cwd, file);
-		free(cwd);
-	} else {
-		filepath = dup_string(file);
-	}
-
-	if(filepath == NULL) return NULL;
-
-	if(file_exists(filepath)) {
-		warning("file is exists: %s\n", filepath);
-		return filepath;
-	}
-
-	int fd = open(filepath, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-	if(fd == -1) {
-		warning("cannot create file: %s\n", filepath);
-		return NULL;
-	}
-
-	close(fd);
-	return filepath;
+	config->list = NULL;
+	config->list_count = 0;
+	config->error_type = LC_ERR_NONE;
 }
 
-void lc_delete_config(const char* path) {
-	assert(path != NULL);
+int lc_load_config(lc_config_t *config, const char *filename)
+{
+	assert(config != NULL);
+	assert(filename != NULL);
 
-	remove(path);
-}
+	if(_file_exists(filename) != 0)
+	{
+		config->error_type = LC_ERR_FILE_NO;
+		return LC_ERROR;
+	}
 
-int lc_var_exists(const char* file, const char* variable) {
-	assert(file != NULL);
-	assert(variable != NULL);
+	FILE *fp = _file_open(filename, "r");
+	if(fp == NULL)
+	{
+		config->error_type = LC_ERR_FILE_NO;
+		return LC_ERROR;
+	}
 
-	FILE* fp = open_file(file, "r");
-	if(!fp) return -1;
-
-	char* line_buffer = NULL;
-	while((line_buffer = read_line_from_file(fp)) != NULL) {
-		char* value = strtok(line_buffer, "=");
-
-		if(strcmp(value, variable) == 0) {
-			free(line_buffer);
-			fclose(fp);
-			return 0;
-		}
-		free(line_buffer);
-		line_buffer = NULL;
+	if(_read_file_to_config(config, fp) == LC_ERROR)
+	{
+		fclose(fp);
+		return LC_ERROR;
 	}
 
 	fclose(fp);
-	return -1;
+
+	config->error_type = LC_ERR_NONE;
+	return LC_SUCCESS;
 }
 
-int lc_delete_var(const char* file, const char* variable) {
-	assert(file != NULL);
-	assert(variable != NULL);
+int lc_dump_config(lc_config_t *config, const char *filename)
+{
+	assert(config != NULL);
+	assert(filename != NULL);
 
-	if(lc_var_exists(file, variable) != 0) return 0;
-
-	ssize_t line_number;
-	if((line_number = find_line_number(file, variable)) == -1) {
-		warning("cannot find line that contain %s variable\n", variable);
-		return -1;
+	FILE *fp = _file_open(filename, "w");
+	if(fp == NULL)
+	{
+		config->error_type = LC_ERR_FILE_NO;
+		return LC_ERROR;
 	}
 
-	if(write_file_without_line(file, line_number) != 0) {
-		warning("error on write file\n");
-		return -1;
+	if(_dump_config_to_file(config, fp) == LC_ERROR)
+	{
+		fclose(fp);
+		return LC_ERROR;
 	}
 
-	return 0;
+	fclose(fp);
+
+	config->error_type = LC_ERR_NONE;
+	return LC_SUCCESS;
 }
 
-int lc_rewrite_var(const char* file, const char* variable, const char* new_value) {
-	assert(file != NULL);
-	assert(variable != NULL);
+int lc_add_variable(lc_config_t *config, const char *name, const char *value)
+{
+	assert(config != NULL);
+	assert(name != NULL);
+	assert(value != NULL);
+
+	char *variable = _make_variable(name, value);
+
+	if(variable == NULL)
+	{
+		config->error_type = LC_ERR_MEMORY_NO;
+		return LC_ERROR;
+	}
+
+	if(_add_list_element(config, variable) == LC_ERROR)
+	{
+		free(variable);
+		return LC_ERROR;
+	}
+
+	free(variable);
+	return LC_SUCCESS;
+}
+
+int lc_delete_variable(lc_config_t *config, const char *name)
+{
+	assert(config != NULL);
+	assert(name != NULL);
+
+	if(config->list == NULL)
+	{
+		config->error_type = LC_ERR_EMPTY;
+		return LC_ERROR;
+	}
+
+	struct _lc_config_list *head = NULL;
+
+	if((head = _find_list_element(config, name)) == NULL)
+		return LC_ERROR;
+
+	if((_delete_list_element(config, head->line)) == LC_ERROR)
+		return LC_ERROR;
+
+	config->error_type = LC_ERR_NONE;
+	return LC_SUCCESS;
+}
+
+lc_existence_t lc_is_variable_in_config(lc_config_t *config, const char *name)
+{
+	assert(config != NULL);
+	assert(name != NULL);
+
+	if(config->list == NULL)
+	{
+		config->error_type = LC_ERR_EMPTY;
+		return LC_EF_ERROR;
+	}
+
+	struct _lc_config_list *head = NULL;
+
+	if((head = _find_list_element(config, name)) == NULL)
+		return LC_EF_NOT_EXISTS;
+
+	config->error_type = LC_ERR_NONE;
+	return LC_EF_EXISTS;
+}
+
+int lc_set_variable(lc_config_t *config, const char *name, const char *new_value)
+{
+	assert(config != NULL);
+	assert(name != NULL);
 	assert(new_value != NULL);
 
-	if(lc_var_exists(file, variable) != 0) {
-		warning("this variable does not exists\n");
-		return -1;
+	if(config->list == NULL)
+	{
+		config->error_type = LC_ERR_EMPTY;
+		return LC_ERROR;
 	}
 
-	ssize_t line_number;
-	if((line_number = find_line_number(file, variable)) == -1) {
-		warning("cannot find line that contain %s variable\n", variable);
-		return -1;
+	char *new_variable = _make_variable(name, new_value);
+
+	if(new_variable == NULL)
+	{
+		config->error_type = LC_ERR_MEMORY_NO;
+		return LC_ERROR;
 	}
 
-	char* new_variable = make_variable(variable, new_value);
-	if(new_variable == NULL) return -1;
-
-	if(rewrite_file_with_new_line(file, line_number, new_variable) != 0) {
-		warning("error on rewrite file\n");
+	if(_rewrite_list_element(config, name, new_variable) != LC_SUCCESS)
+	{
 		free(new_variable);
-		return -1;
+		return LC_ERROR;
 	}
 
 	free(new_variable);
-	return 0;
+	return LC_SUCCESS;
 }
 
-char* lc_get_var(const char* file, const char* variable) {
-	assert(file != NULL);
-	assert(variable != NULL);
-
-	if(lc_var_exists(file, variable)) {
-		warning("variable %s doesn't exists in file: %s\n", variable, file);
-		return NULL;
-	}
-
-	FILE* fp = open_file(file, "r");
-	if(!fp) return NULL;
-
-	char* line_buffer = NULL;
-	char* result_value = NULL;
-	while((line_buffer = read_line_from_file(fp)) != NULL) {
-		char* variable_name = strtok(line_buffer, "=");
-		char* variable_value = strtok(NULL, "=");
-
-		if(strcmp(variable_name, variable) == 0) {
-			result_value = dup_string(variable_value);
-			free(line_buffer);
-			break;
-		}
-		free(line_buffer);
-		line_buffer = NULL;
-	}
-
-	fclose(fp);
-	return result_value;
-}
-
-lc_split_t* lc_split_var(const char* file, const char* name, const char* delim) {
-	assert(file != NULL);
+char* lc_get_value(lc_config_t *config, const char *name)
+{
+	assert(config != NULL);
 	assert(name != NULL);
-	assert(delim != NULL);
 
-	char* value = lc_get_var(file, name);
-	if(!value) return NULL;
-
-	lc_split_t* tokens = init_split(name);
-	if(!tokens) return NULL;
-
-	ssize_t tokens_size;
-	if((tokens_size = find_amount_of_tokens_in_value(value, delim)) != -1) {
-		tokens->size = tokens_size;
-	} else {
-		free(value);
-		free(tokens);
+	if(config->list == NULL)
+	{
+		config->error_type = LC_ERR_EMPTY;
 		return NULL;
 	}
 
-	size_t index = 0;
-	lc_token_t* node = NULL;
-	char* token = strtok(value, delim);
-	while(token != NULL) {
-		node = make_node_token(token, index);
-		if(node == NULL) {
-			free(value);
-			free(tokens);
-			return NULL;
-		}
+	struct _lc_config_list *head = NULL;
 
-		tokens = add_node_split(tokens, node);
+	if((head = _find_list_element(config, name)) == NULL)
+		return NULL;
 
-		index++;
-		token = strtok(NULL, delim);
+	char *value = NULL;
+
+	if((value = _get_value_from_variable(head->line)) == NULL)
+	{
+		config->error_type = LC_ERR_MEMORY_NO;
+		return NULL;
 	}
 
-	free(value);
-	return tokens;
+	return value;
 }
 
-char* lc_get_token(lc_split_t* tokens, size_t index) {
-	assert(tokens != NULL);
-
-	lc_token_t* token = NULL;
-	if((token = get_token_by_id(tokens, index)) != NULL) {
-		return dup_string(token->string);
-	}
-
-	return NULL;
+void lc_print_config(const lc_config_t *config)
+{
+	_print_list(config->list);
 }
 
-void lc_free_split(lc_split_t* tokens) {
-	assert(tokens != NULL);
+void lc_clear_config(lc_config_t *config)
+{
+	if(config == NULL)
+		return;
 
-	lc_token_t* head = tokens->head;
-	lc_token_t* temp = NULL;
+	_delete_list(config->list);
 
-	while(head != NULL) {
-		temp = head;
-		head = head->next;
-
-		free(temp->string);
-		free(temp);
-	}
-
-	free(tokens->name);
-	free(tokens);
+	config->list_count = 0;
+	config->error_type = LC_ERR_NONE;
 }
 
-void lc_print_tokens(lc_split_t* tokens) {
-	assert(tokens != NULL);
-
-	lc_token_t* head = tokens->head;
-	while(head != NULL) {
-		printf("%s, ", head->string);
-		head = head->next;
-	}
-	printf("\n");
-}
-
-*/
