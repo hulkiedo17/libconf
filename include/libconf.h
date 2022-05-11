@@ -39,12 +39,14 @@ typedef struct lc_config
 	struct _lc_config_list *list;
 	size_t list_size;
 	enum _lc_config_error error_type;
-	// char *file;
+	//char *filepath;
 } lc_config_t;
 
 
 // basic functions for init and clear config
 void lc_init_config(lc_config_t *config);
+
+//void lc_init_config_file(lc_config_t *config, const char *filepath);
 
 void lc_clear_config(lc_config_t *config);
 
@@ -54,17 +56,21 @@ int lc_is_empty(const lc_config_t *config);
 
 
 // io functions for config
-int lc_load_config(lc_config_t *config, const char *filename);
+int lc_load_config_file(lc_config_t *config, const char *filepath);
 
-int lc_dump_config(lc_config_t *config, const char *filename);
+int lc_load_config_stream(lc_config_t *config, FILE *fp);
+
+//int lc_load_config(lc_config_t *config);
+
+int lc_dump_config_file(lc_config_t *config, const char *filepath);
+
+int lc_dump_config_stream(lc_config_t *config, FILE *fp);
+
+//int lc_dump_config(lc_config_t *config);
 
 void lc_print_config(const lc_config_t *config);
 
 int lc_print_error(const lc_config_t *config);
-
-// (add file to config struct, and 2 funcs to work with it)
-// load_config(FILE)
-// dump_config(FILE)
 
 
 // functions for editing variables in config 
@@ -86,14 +92,20 @@ lc_config_variable_t* lc_get_variable(lc_config_t *config, const char *name);
 
 
 // functions for editing variables
-// char* get_variable_name()
-// char* get_variable_value()
-// int create_variable()
-// void destroy_variable()
-// int set_variable_name()
-// int set_variable_value()
-// void print_variable()
-//
+lc_config_variable_t* lc_create_variable(const char *name, const char *value);
+
+void lc_destroy_variable(lc_config_variable_t *variable);
+
+char* lc_get_variable_name(lc_config_variable_t *variable);
+
+char* lc_get_variable_value(lc_config_variable_t *variable);
+
+int lc_set_variable_name(lc_config_variable_t *variable, const char *name);
+
+int lc_set_variable_value(lc_config_variable_t *variable, const char *value);
+
+void lc_print_variable(const lc_config_variable_t *variable);
+
 // set_*, get_* -> with int(u and s), float, double
 
 #endif

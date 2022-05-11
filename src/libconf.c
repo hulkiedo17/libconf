@@ -55,7 +55,7 @@ static char* _read_line_from_file(FILE *fp)
 	char *line_buffer = calloc(line_length, sizeof(char));
 	if(line_buffer == NULL)
 	{
-		fpritnf(stderr, "[CONFIG] %s : allocation failed\n", __func__);
+		fprintf(stderr, "[CONFIG] %s : allocation failed\n", __func__);
 		return NULL;
 	}
 
@@ -110,7 +110,7 @@ static int _write_line_to_file(FILE *fp, const char *line)
 	return LC_SUCCESS;
 }
 
-// config list api
+// config list functions
 
 static void _free_config_variable(lc_config_variable_t *variable)
 {
@@ -386,7 +386,7 @@ static int _rewrite_list_element_value(lc_config_t *config, const char *name, co
 	return LC_SUCCESS;
 }
 
-// main io functions
+// config io functions
 
 static int _read_file_to_config(lc_config_t *config, FILE *fp)
 {
@@ -455,7 +455,7 @@ static int _dump_config_to_file(lc_config_t *config, FILE *fp)
 	return LC_SUCCESS;
 }
 
-// main library api
+// config functions
 
 void lc_init_config(lc_config_t *config)
 {
@@ -464,22 +464,33 @@ void lc_init_config(lc_config_t *config)
 	config->list = NULL;
 	config->list_size = 0;
 	config->error_type = LC_ERR_NONE;
-	//config->file = file; // if it's null, set null.
-	// maybe status (-_-)
+	//config->filepath = NULL;
 }
 
-int lc_load_config(lc_config_t *config, const char *filename)
+/*void lc_init_config_file(lc_config_t *config, const char *filepath)
 {
 	assert(config != NULL);
-	assert(filename != NULL);
+	assert(filepath != NULL);
 
-	if(_file_exists(filename) != 0)
+	config->list = NULL;
+	config->list_size = 0;
+	config->error_type = LC_ERR_NONE;
+	config->filepath = _duplicate_string(filepath);
+}
+*/
+
+int lc_load_config_file(lc_config_t *config, const char *filepath)
+{
+	assert(config != NULL);
+	assert(filepath != NULL);
+
+	if(_file_exists(filepath) != 0)
 	{
 		config->error_type = LC_ERR_FILE_NO;
 		return LC_ERROR;
 	}
 
-	FILE *fp = _file_open(filename, "r");
+	FILE *fp = _file_open(filepath, "r");
 	if(fp == NULL)
 	{
 		config->error_type = LC_ERR_FILE_NO;
@@ -497,12 +508,20 @@ int lc_load_config(lc_config_t *config, const char *filename)
 	return LC_SUCCESS;
 }
 
-int lc_dump_config(lc_config_t *config, const char *filename)
+int lc_load_config_stream(lc_config_t *config, FILE *fp)
 {
 	assert(config != NULL);
-	assert(filename != NULL);
+	assert(fp != NULL);
 
-	FILE *fp = _file_open(filename, "w");
+	return _read_file_to_config(config, fp);
+}
+
+int lc_dump_config_file(lc_config_t *config, const char *filepath)
+{
+	assert(config != NULL);
+	assert(filepath != NULL);
+
+	FILE *fp = _file_open(filepath, "w");
 	if(fp == NULL)
 	{
 		config->error_type = LC_ERR_FILE_NO;
@@ -518,6 +537,14 @@ int lc_dump_config(lc_config_t *config, const char *filename)
 	fclose(fp);
 
 	return LC_SUCCESS;
+}
+
+int lc_dump_config_stream(lc_config_t *config, FILE *fp)
+{
+	assert(config != NULL);
+	assert(fp != NULL);
+
+	return _dump_config_to_file(config, fp);
 }
 
 int lc_add_variable(lc_config_t *config, const char *name, const char *value)
@@ -647,6 +674,8 @@ void lc_clear_config(lc_config_t *config)
 
 	config->list_size = 0;
 	config->error_type = LC_ERR_NONE;
+	//if(config->filepath != NULL)
+	//	free(config->filepath);
 }
 
 size_t lc_get_size(const lc_config_t *config)
@@ -660,4 +689,68 @@ size_t lc_get_size(const lc_config_t *config)
 int lc_is_empty(const lc_config_t *config)
 {
 	return config->list_size == 0;
+}
+
+// variables functions
+
+lc_config_variable_t* lc_create_variable(const char *name, const char *value)
+{
+	if(name == NULL || value == NULL)
+		return NULL;
+
+	return _make_config_variable(name, value);
+}
+
+void lc_destroy_variable(lc_config_variable_t *variable)
+{
+	if(variable == NULL)
+		return;
+
+	_free_config_variable(variable);
+}
+
+char* lc_get_variable_name(lc_config_variable_t *variable)
+{
+	if(variable == NULL)
+		return NULL;
+
+	return _duplicate_string(variable->name);
+}
+
+char* lc_get_variable_value(lc_config_variable_t *variable)
+{
+	if(variable == NULL)
+		return NULL;
+
+	return _duplicate_string(variable->value);
+}
+
+int lc_set_variable_name(lc_config_variable_t *variable, const char *name)
+{
+	if(variable == NULL || name == NULL)
+		return LC_ERROR;
+
+	free(variable->name);
+	variable->name = _duplicate_string(name);
+
+	return LC_SUCCESS;
+}
+
+int lc_set_variable_value(lc_config_variable_t *variable, const char *value)
+{
+	if(variable == NULL || value == NULL)
+		return LC_ERROR;
+
+	free(variable->value);
+	variable->value = _duplicate_string(value);
+
+	return LC_SUCCESS;
+}
+
+void lc_print_variable(const lc_config_variable_t *variable)
+{
+	if(variable == NULL)
+		return;
+
+	printf("%s=%s\n", variable->name, variable->value);
 }
