@@ -37,7 +37,7 @@ struct _lc_config_list
 typedef struct lc_config
 {
 	struct _lc_config_list *list;
-	size_t list_count;
+	size_t list_size;
 	enum _lc_config_error error_type;
 	// char *file;
 } lc_config_t;
@@ -48,6 +48,10 @@ void lc_init_config(lc_config_t *config);
 
 void lc_clear_config(lc_config_t *config);
 
+size_t lc_get_size(const lc_config_t *config);
+
+int lc_is_empty(const lc_config_t *config);
+
 
 // io functions for config
 int lc_load_config(lc_config_t *config, const char *filename);
@@ -55,6 +59,12 @@ int lc_load_config(lc_config_t *config, const char *filename);
 int lc_dump_config(lc_config_t *config, const char *filename);
 
 void lc_print_config(const lc_config_t *config);
+
+int lc_print_error(const lc_config_t *config);
+
+// (add file to config struct, and 2 funcs to work with it)
+// load_config(FILE)
+// dump_config(FILE)
 
 
 // functions for editing variables in config 
@@ -68,6 +78,14 @@ int lc_set_variable(lc_config_t *config, const char *name, const char *new_value
 
 lc_config_variable_t* lc_get_variable(lc_config_t *config, const char *name);
 
+// int add_variable() // variable, not 2 char pointers
+// int delete_variable() // variable, not char pointer
+// ___ is_var_in_config() // variable, not char pointer
+// int replace_variable(var, var)
+// int replace_variable(char*, var)
+
+
+// functions for editing variables
 // char* get_variable_name()
 // char* get_variable_value()
 // int create_variable()
@@ -77,21 +95,5 @@ lc_config_variable_t* lc_get_variable(lc_config_t *config, const char *name);
 // void print_variable()
 //
 // set_*, get_* -> with int(u and s), float, double
-
-// int add_variable() // variable, not 2 char pointers
-// int delete_variable() // variable, not char pointer
-// ___ is_var_in_config() // variable, not char pointer
-// int replace_variable(var, var)
-// int replace_variable(char*, var)
-
-// (add file to config struct, and 2 funcs to work with it)
-// load_config(FILE)
-// dump_config(FILE)
-// get_size(config)
-// show_type_error(config)
-// is_empty(config)
-
-// add_comment(char*)
-// del_comment(char*)
 
 #endif

@@ -55,7 +55,7 @@ static char* _read_line_from_file(FILE *fp)
 	char *line_buffer = calloc(line_length, sizeof(char));
 	if(line_buffer == NULL)
 	{
-		perror("calloc");
+		fpritnf(stderr, "[CONFIG] %s : allocation failed\n", __func__);
 		return NULL;
 	}
 
@@ -90,7 +90,7 @@ static char* _read_line_from_file(FILE *fp)
 			line_buffer = realloc(line_buffer, line_length);
 			if(line_buffer == NULL)
 			{
-				perror("realloc");
+				fprintf(stderr, "[CONFIG] %s : allocation failed\n", __func__);
 				return NULL;
 			}
 		}
@@ -243,7 +243,7 @@ static int _add_list_element(lc_config_t *config, lc_config_variable_t *variable
 	{
 		config->list = element;
 		config->error_type = LC_ERR_NONE;
-		config->list_count++;
+		config->list_size++;
 		return LC_SUCCESS;
 	}
 
@@ -254,7 +254,7 @@ static int _add_list_element(lc_config_t *config, lc_config_variable_t *variable
 	temp->next = element;
 
 	config->error_type = LC_ERR_NONE;
-	config->list_count++;
+	config->list_size++;
 	return LC_SUCCESS;
 }
 
@@ -337,7 +337,7 @@ static int _delete_list_element(lc_config_t *config, const char *name)
 		_free_list_element(element);
 
 		config->error_type = LC_ERR_NONE;
-		config->list_count--;
+		config->list_size--;
 		return LC_SUCCESS;
 	}
 
@@ -347,7 +347,7 @@ static int _delete_list_element(lc_config_t *config, const char *name)
 	_free_list_element(temp);
 	
 	config->error_type = LC_ERR_NONE;
-	config->list_count--;
+	config->list_size--;
 	return LC_SUCCESS;
 }
 
@@ -462,7 +462,7 @@ void lc_init_config(lc_config_t *config)
 	assert(config != NULL);
 
 	config->list = NULL;
-	config->list_count = 0;
+	config->list_size = 0;
 	config->error_type = LC_ERR_NONE;
 	//config->file = file; // if it's null, set null.
 	// maybe status (-_-)
@@ -620,6 +620,24 @@ void lc_print_config(const lc_config_t *config)
 	_print_list(config->list);
 }
 
+int lc_print_error(const lc_config_t *config)
+{
+	if(config == NULL)
+		return LC_ERROR;
+
+	const char * const error_msg[6] = {
+		"LC_ERR_NONE",
+		"LC_ERR_EMPTY",
+		"LC_ERR_FILE_NO",
+		"LC_ERR_MEMORY_NO",
+		"LC_ERR_WRITE_NO",
+		"LC_ERR_NOT_EXISTS"
+	};
+
+	fprintf(stderr, "[CONFIG] error_type = %s\n", error_msg[config->error_type]);
+	return LC_SUCCESS;
+}
+
 void lc_clear_config(lc_config_t *config)
 {
 	if(config == NULL)
@@ -627,7 +645,19 @@ void lc_clear_config(lc_config_t *config)
 
 	_delete_list(config->list);
 
-	config->list_count = 0;
+	config->list_size = 0;
 	config->error_type = LC_ERR_NONE;
 }
 
+size_t lc_get_size(const lc_config_t *config)
+{
+	if(config == NULL)
+		return (size_t)0;
+
+	return config->list_size;
+}
+
+int lc_is_empty(const lc_config_t *config)
+{
+	return config->list_size == 0;
+}
