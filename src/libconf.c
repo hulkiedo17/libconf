@@ -44,86 +44,6 @@ static char* _duplicate_string(const char *string)
 	return duplicate;
 }
 
-static char* _get_name_from_variable(const char *line)
-{
-	assert(line != NULL);
-
-	char *dup_line = _duplicate_string(line);
-	if(dup_line == NULL)
-		return NULL;
-
-	char *variable_name = strtok(dup_line, "=");
-
-	char *name = _duplicate_string(variable_name);
-	if(name == NULL)
-	{
-		free(dup_line);
-		return NULL;
-	}
-
-	free(dup_line);
-	return name;
-}
-
-static char* _get_value_from_variable(const char *line)
-{
-	assert(line != NULL);
-
-	char *dup_line = _duplicate_string(line);
-	if(dup_line == NULL)
-		return NULL;
-
-	strtok(dup_line, "=");
-
-	char *variable_value = strtok(NULL, "=");
-
-	char *value = _duplicate_string(variable_value);
-	if(value == NULL)
-	{
-		free(dup_line);
-		return NULL;
-	}
-
-	free(dup_line);
-	return value;
-}
-
-/*static struct _lc_config_variable* _make_variable2(const char *name, const char *value)
-{
-	struct _lc_config_variable *new_variable = NULL;
-
-	new_variable = malloc(sizeof(struct _lc_config_variable));
-	if(new_variable == NULL)
-	{
-		perror("malloc");
-		return NULL;
-	}
-
-	new_variable->name = _duplicate_string(name);
-	new_variable->value = _duplicate_string(value);
-
-	return new_variable;
-}*/
-
-static char* _make_variable(const char *name, const char *value)
-{
-	assert(name != NULL);
-	assert(value != NULL);
-
-	size_t length = strlen(name) + strlen(value) + 2; // '=' and '\0'
-
-	char *variable = calloc(length, sizeof(char));
-	if(variable == NULL)
-		return NULL;
-
-	memcpy(variable, name, strlen(name));
-	memcpy(variable + strlen(name), "=", 1);
-	memcpy(variable + strlen(name) + 1, value, strlen(value));
-
-	return variable;
-}
-
-
 static char* _read_line_from_file(FILE *fp)
 {
 	assert(fp != NULL);
@@ -185,17 +105,87 @@ static int _write_line_to_file(FILE *fp, const char *line)
 	if(fwrite(line, 1, strlen(line), fp) != strlen(line))
 		return LC_ERROR;
 
-	if(fwrite("\n", 1, 1, fp) != 1)
-		return LC_ERROR;
-
 	return LC_SUCCESS;
 }
 
 // config list api
 
-static struct _lc_config_list* _create_list_element(const char *line)
+static struct _lc_config_variable* _make_config_variable(const char *name, const char *value)
+{
+	struct _lc_config_variable *new_variable = NULL;
+
+	new_variable = malloc(sizeof(struct _lc_config_variable));
+	if(new_variable == NULL)
+		return NULL;
+
+	new_variable->name = _duplicate_string(name);
+	if(new_variable->name == NULL)
+	{
+		free(new_variable);
+		return NULL;
+	}
+
+	new_variable->value = _duplicate_string(value);
+	if(new_variable->value == NULL)
+	{
+		free(new_variable->name);
+		free(new_variable);
+		return NULL;
+	}
+
+	return new_variable;
+}
+
+static void _free_config_variable(struct _lc_config_variable *variable)
+{
+	if(variable == NULL)
+		return;
+
+	free(variable->name);
+	free(variable->value);
+	free(variable);
+}
+
+static struct _lc_config_variable* _convert_line_to_variable(const char *line)
 {
 	assert(line != NULL);
+
+	char *dup_line = _duplicate_string(line);
+	if(dup_line == NULL)
+		return NULL;
+
+	char *name = strtok(dup_line, "=");
+	char *value = strtok(NULL, "=");
+
+	struct _lc_config_variable *variable = _make_config_variable(name, value);
+
+	free(dup_line);
+	return variable;
+}
+
+static char* _convert_variable_to_line(struct _lc_config_variable *variable)
+{
+	assert(variable != NULL);
+
+	// +3 because we also add: '=', '\n', '\0'
+	size_t length = strlen(variable->name) + strlen(variable->value) + 3;
+
+	char *line = calloc(length, sizeof(char));
+	if(line == NULL)
+		return NULL;
+
+	if(snprintf(line, length, "%s=%s\n", variable->name, variable->value) != ((int)length - 1))
+	{
+		free(line);
+		return NULL;
+	}
+
+	return line;
+}
+
+static struct _lc_config_list* _create_list_element(struct _lc_config_variable *variable)
+{
+	assert(variable != NULL);
 
 	struct _lc_config_list *element = NULL;
 
@@ -203,26 +193,20 @@ static struct _lc_config_list* _create_list_element(const char *line)
 	if(element == NULL)
 		return NULL;
 
-	element->line = _duplicate_string(line);
-	if(element->line == NULL)
-	{
-		free(element);
-		return NULL;
-	}
-
+	element->variable = variable;
 	element->next = NULL;
 
 	return element;
 }
 
-static int _add_list_element(lc_config_t *config, const char *line)
+static int _add_list_element(lc_config_t *config, struct _lc_config_variable *variable)
 {
 	assert(config != NULL);
-	assert(line != NULL);
+	assert(variable != NULL);
 
 	struct _lc_config_list *element = NULL;
 
-	element = _create_list_element(line);
+	element = _create_list_element(variable);
 	if(element == NULL)
 	{
 		config->error_type = LC_ERR_MEMORY_NO;
@@ -248,22 +232,43 @@ static int _add_list_element(lc_config_t *config, const char *line)
 	return LC_SUCCESS;
 }
 
-static int _delete_list_element(lc_config_t *config, const char *line)
+static void _free_list_element(struct _lc_config_list *element)
+{
+	if(element == NULL)
+		return;
+
+	_free_config_variable(element->variable);
+	free(element);
+}
+
+// make find_prev()
+//
+// alg:
+// if find_elem() cannot find elem, go to return err
+// else, find_prev(), if canont, it's first element(then delete)
+// else, delete this element
+
+static int _delete_list_element(lc_config_t *config, const char *name)
 {
 	assert(config != NULL);
-	assert(line != NULL);
+	assert(name != NULL);
 
 	struct _lc_config_list *prev = config->list;
 	struct _lc_config_list *head = config->list;
 	struct _lc_config_list *temp = NULL;
 
-	if(strcmp(head->line, line) == 0)
+	if(head == NULL)
+	{
+		config->error_type = LC_ERR_EMPTY;
+		return LC_ERROR;
+	}
+
+	if(strcmp(head->variable->name, name) == 0)
 	{
 		temp = head;
 		config->list = config->list->next;
 
-		free(temp->line);
-		free(temp);
+		_free_list_element(temp);
 
 		config->error_type = LC_ERR_NONE;
 		config->list_count--;
@@ -278,13 +283,12 @@ static int _delete_list_element(lc_config_t *config, const char *line)
 
 	while(head != NULL)
 	{
-		if(strcmp(head->line, line) == 0)
+		if(strcmp(head->variable->name, name) == 0)
 		{
 			temp = head;
 			prev->next = head->next;
 
-			free(temp->line);
-			free(temp);
+			_free_list_element(temp);
 
 			config->error_type = LC_ERR_NONE;
 			config->list_count--;
@@ -312,8 +316,7 @@ static void _delete_list(struct _lc_config_list *list)
 		temp = head;
 		head = head->next;
 
-		free(temp->line);
-		free(temp);
+		_free_list_element(temp);
 	}
 }
 
@@ -322,25 +325,16 @@ static struct _lc_config_list* _find_list_element(lc_config_t *config, const cha
 	assert(config != NULL);
 	assert(name != NULL);
 
-	char *variable_name = NULL;
 	struct _lc_config_list *head = config->list;
 
 	while(head != NULL)
 	{
-		if((variable_name = _get_name_from_variable(head->line)) == NULL)
+		if(strcmp(head->variable->name, name) == 0)
 		{
-			config->error_type = LC_ERR_MEMORY_NO;
-			return NULL;
-		}
-
-		if(strcmp(variable_name, name) == 0)
-		{
-			free(variable_name);
 			config->error_type = LC_ERR_NONE;
 			return head;
 		}
 
-		free(variable_name);
 		head = head->next;
 	}
 
@@ -348,26 +342,23 @@ static struct _lc_config_list* _find_list_element(lc_config_t *config, const cha
 	return NULL;
 }
 
-static int _rewrite_list_element(lc_config_t *config, const char *name, const char *new_line)
+static int _rewrite_list_element(lc_config_t *config, const char *name, struct _lc_config_variable * new_variable)
 {
 	assert(config != NULL);
 	assert(name != NULL);
-	assert(new_line != NULL);
+	assert(new_variable != NULL);
 
-	char *temp_line = NULL;
 	struct _lc_config_list *element = NULL;
 
 	if((element = _find_list_element(config, name)) == NULL)
 		return LC_ERROR;
 
-	if((temp_line = _duplicate_string(new_line)) == NULL)
-	{
-		config->error_type = LC_ERR_MEMORY_NO;
-		return LC_ERROR;
-	}
+	//free(element->variable->value);
+	//element->variable->value = new_value;
 
-	free(element->line);
-	element->line = temp_line;
+	_free_config_variable(element->variable);
+
+	element->variable = new_variable;
 
 	config->error_type = LC_ERR_NONE;
 	return LC_SUCCESS;
@@ -379,9 +370,10 @@ static void _print_list(struct _lc_config_list *list)
 
 	struct _lc_config_list *head = list;
 
+	//printf("%s:\n", config_name);
 	while(head != NULL)
 	{
-		printf("%s\n", head->line);
+		printf("%s=%s\n", head->variable->name, head->variable->value);
 		head = head->next;
 	}
 	printf("\n");
@@ -395,16 +387,26 @@ static int _read_file_to_config(lc_config_t *config, FILE *fp)
 	assert(fp != NULL);
 
 	char *line = NULL;
+	struct _lc_config_variable * variable = NULL;
 
 	while((line = _read_line_from_file(fp)) != NULL)
 	{
-		if(_add_list_element(config, line) == LC_ERROR)
+		if((variable = _convert_line_to_variable(line)) == NULL)
 		{
 			free(line);
+			config->error_type = LC_ERR_MEMORY_NO;
+			return LC_ERROR;
+		}
+
+		if(_add_list_element(config, variable) == LC_ERROR)
+		{
+			free(line);
+			free(variable);
 			return LC_ERROR;
 		}
 
 		free(line);
+		//free(variable);
 	}
 
 	return LC_SUCCESS;
@@ -421,16 +423,25 @@ static int _dump_config_to_file(lc_config_t *config, FILE *fp)
 		return LC_ERROR;
 	}
 
+	char *line = NULL;
 	struct _lc_config_list *head = config->list;
 
 	while(head != NULL)
 	{
-		if(_write_line_to_file(fp, head->line) == LC_ERROR)
+		if((line = _convert_variable_to_line(head->variable)) == NULL)
 		{
+			config->error_type = LC_ERR_MEMORY_NO;
+			return LC_ERROR;
+		}
+
+		if(_write_line_to_file(fp, line) == LC_ERROR)
+		{
+			free(line);
 			config->error_type = LC_ERR_WRITE_NO;
 			return LC_ERROR;
 		}
 
+		free(line);
 		head = head->next;
 	}
 
@@ -446,6 +457,7 @@ void lc_init_config(lc_config_t *config)
 	config->list = NULL;
 	config->list_count = 0;
 	config->error_type = LC_ERR_NONE;
+	//config->file = file; // if it's null, set null.
 }
 
 int lc_load_config(lc_config_t *config, const char *filename)
@@ -508,8 +520,7 @@ int lc_add_variable(lc_config_t *config, const char *name, const char *value)
 	assert(name != NULL);
 	assert(value != NULL);
 
-	char *variable = _make_variable(name, value);
-
+	struct _lc_config_variable * variable = _make_config_variable(name, value);
 	if(variable == NULL)
 	{
 		config->error_type = LC_ERR_MEMORY_NO;
@@ -522,7 +533,7 @@ int lc_add_variable(lc_config_t *config, const char *name, const char *value)
 		return LC_ERROR;
 	}
 
-	free(variable);
+	//free(variable);
 	return LC_SUCCESS;
 }
 
@@ -537,12 +548,8 @@ int lc_delete_variable(lc_config_t *config, const char *name)
 		return LC_ERROR;
 	}
 
-	struct _lc_config_list *head = NULL;
-
-	if((head = _find_list_element(config, name)) == NULL)
-		return LC_ERROR;
-
-	if((_delete_list_element(config, head->line)) == LC_ERROR)
+	// TODO: think about _find_elem() that returns previous element (for delete_elem())
+	if((_delete_list_element(config, name)) == LC_ERROR)
 		return LC_ERROR;
 
 	config->error_type = LC_ERR_NONE;
@@ -569,6 +576,9 @@ lc_existence_t lc_is_variable_in_config(lc_config_t *config, const char *name)
 	return LC_EF_EXISTS;
 }
 
+// TODO:
+// you don't allocate memory for new struct variable, just free value and alloc new
+// make for this new functions
 int lc_set_variable(lc_config_t *config, const char *name, const char *new_value)
 {
 	assert(config != NULL);
@@ -581,8 +591,7 @@ int lc_set_variable(lc_config_t *config, const char *name, const char *new_value
 		return LC_ERROR;
 	}
 
-	char *new_variable = _make_variable(name, new_value);
-
+	struct _lc_config_variable *new_variable = _make_config_variable(name, new_value);
 	if(new_variable == NULL)
 	{
 		config->error_type = LC_ERR_MEMORY_NO;
@@ -590,16 +599,12 @@ int lc_set_variable(lc_config_t *config, const char *name, const char *new_value
 	}
 
 	if(_rewrite_list_element(config, name, new_variable) != LC_SUCCESS)
-	{
-		free(new_variable);
 		return LC_ERROR;
-	}
 
-	free(new_variable);
 	return LC_SUCCESS;
 }
 
-char* lc_get_value(lc_config_t *config, const char *name)
+struct _lc_config_variable* lc_get_variable(lc_config_t *config, const char *name)
 {
 	assert(config != NULL);
 	assert(name != NULL);
@@ -615,15 +620,7 @@ char* lc_get_value(lc_config_t *config, const char *name)
 	if((head = _find_list_element(config, name)) == NULL)
 		return NULL;
 
-	char *value = NULL;
-
-	if((value = _get_value_from_variable(head->line)) == NULL)
-	{
-		config->error_type = LC_ERR_MEMORY_NO;
-		return NULL;
-	}
-
-	return value;
+	return head->variable;
 }
 
 void lc_print_config(const lc_config_t *config)
