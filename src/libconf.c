@@ -7,6 +7,8 @@
 #include <sys/types.h>
 #include "libconf.h"
 
+// misc functions
+
 static int _file_exists(const char *path)
 {
 	assert(path != NULL);
@@ -110,6 +112,25 @@ static int _write_line_to_file(FILE *fp, const char *line)
 
 // config list api
 
+static void _free_config_variable(struct _lc_config_variable *variable)
+{
+	if(variable == NULL)
+		return;
+
+	free(variable->name);
+	free(variable->value);
+	free(variable);
+}
+
+static void _free_list_element(struct _lc_config_list *element)
+{
+	if(element == NULL)
+		return;
+
+	_free_config_variable(element->variable);
+	free(element);
+}
+
 static struct _lc_config_variable* _make_config_variable(const char *name, const char *value)
 {
 	struct _lc_config_variable *new_variable = NULL;
@@ -136,14 +157,20 @@ static struct _lc_config_variable* _make_config_variable(const char *name, const
 	return new_variable;
 }
 
-static void _free_config_variable(struct _lc_config_variable *variable)
+static struct _lc_config_list* _create_list_element(struct _lc_config_variable *variable)
 {
-	if(variable == NULL)
-		return;
+	assert(variable != NULL);
 
-	free(variable->name);
-	free(variable->value);
-	free(variable);
+	struct _lc_config_list *element = NULL;
+
+	element = malloc(sizeof(struct _lc_config_list));
+	if(element == NULL)
+		return NULL;
+
+	element->variable = variable;
+	element->next = NULL;
+
+	return element;
 }
 
 static struct _lc_config_variable* _convert_line_to_variable(const char *line)
@@ -183,20 +210,19 @@ static char* _convert_variable_to_line(struct _lc_config_variable *variable)
 	return line;
 }
 
-static struct _lc_config_list* _create_list_element(struct _lc_config_variable *variable)
+static void _print_list(struct _lc_config_list *list)
 {
-	assert(variable != NULL);
+	assert(list != NULL);
 
-	struct _lc_config_list *element = NULL;
+	struct _lc_config_list *head = list;
 
-	element = malloc(sizeof(struct _lc_config_list));
-	if(element == NULL)
-		return NULL;
-
-	element->variable = variable;
-	element->next = NULL;
-
-	return element;
+	//printf("%s:\n", config_name);
+	while(head != NULL)
+	{
+		printf("%s=%s\n", head->variable->name, head->variable->value);
+		head = head->next;
+	}
+	printf("\n");
 }
 
 static int _add_list_element(lc_config_t *config, struct _lc_config_variable *variable)
@@ -232,94 +258,6 @@ static int _add_list_element(lc_config_t *config, struct _lc_config_variable *va
 	return LC_SUCCESS;
 }
 
-static void _free_list_element(struct _lc_config_list *element)
-{
-	if(element == NULL)
-		return;
-
-	_free_config_variable(element->variable);
-	free(element);
-}
-
-// make find_prev()
-//
-// alg:
-// if find_elem() cannot find elem, go to return err
-// else, find_prev(), if canont, it's first element(then delete)
-// else, delete this element
-
-static int _delete_list_element(lc_config_t *config, const char *name)
-{
-	assert(config != NULL);
-	assert(name != NULL);
-
-	struct _lc_config_list *prev = config->list;
-	struct _lc_config_list *head = config->list;
-	struct _lc_config_list *temp = NULL;
-
-	if(head == NULL)
-	{
-		config->error_type = LC_ERR_EMPTY;
-		return LC_ERROR;
-	}
-
-	if(strcmp(head->variable->name, name) == 0)
-	{
-		temp = head;
-		config->list = config->list->next;
-
-		_free_list_element(temp);
-
-		config->error_type = LC_ERR_NONE;
-		config->list_count--;
-		return LC_SUCCESS;
-	}
-
-	if(head->next == NULL)
-	{
-		config->error_type = LC_ERR_NOT_EXISTS;
-		return LC_ERROR;
-	}
-
-	while(head != NULL)
-	{
-		if(strcmp(head->variable->name, name) == 0)
-		{
-			temp = head;
-			prev->next = head->next;
-
-			_free_list_element(temp);
-
-			config->error_type = LC_ERR_NONE;
-			config->list_count--;
-			return LC_SUCCESS;
-		}
-
-		prev = head;
-		head = head->next;
-	}
-
-	config->error_type = LC_ERR_NOT_EXISTS;
-	return LC_ERROR;
-}
-
-static void _delete_list(struct _lc_config_list *list)
-{
-	if(list == NULL)
-		return;
-
-	struct _lc_config_list *head = list;
-	struct _lc_config_list *temp = NULL;
-
-	while(head != NULL)
-	{
-		temp = head;
-		head = head->next;
-
-		_free_list_element(temp);
-	}
-}
-
 static struct _lc_config_list* _find_list_element(lc_config_t *config, const char *name)
 {
 	assert(config != NULL);
@@ -342,6 +280,94 @@ static struct _lc_config_list* _find_list_element(lc_config_t *config, const cha
 	return NULL;
 }
 
+static struct _lc_config_list* _find_prev_list_element(lc_config_t *config, const char *name)
+{
+	assert(config != NULL);
+	assert(name != NULL);
+
+	struct _lc_config_list *prev = NULL;
+	struct _lc_config_list *head = config->list;
+
+	while(head != NULL)
+	{
+		if(strcmp(head->variable->name, name) == 0)
+		{
+			if(prev == NULL)
+			{
+				config->error_type = LC_ERR_NOT_EXISTS;
+				return NULL;
+			}
+
+			config->error_type = LC_ERR_NONE;
+			return prev;
+		}
+
+		prev = head;
+		head = head->next;
+	}
+
+	config->error_type = LC_ERR_NOT_EXISTS;
+	return NULL;
+}
+
+static int _delete_list_element(lc_config_t *config, const char *name)
+{
+	assert(config != NULL);
+	assert(name != NULL);
+
+	if(config->list == NULL)
+	{
+		config->error_type = LC_ERR_EMPTY;
+		return LC_ERROR;
+	}
+
+	struct _lc_config_list *temp = NULL;
+	struct _lc_config_list *element = NULL;
+	struct _lc_config_list *prev_element = NULL;
+
+	if((element = _find_list_element(config, name)) == NULL)
+	{
+		config->error_type = LC_ERR_NOT_EXISTS;
+		return LC_ERROR;
+	}
+
+	if((prev_element = _find_prev_list_element(config, name)) == NULL)
+	{
+		config->list = config->list->next;
+		_free_list_element(element);
+
+		config->error_type = LC_ERR_NONE;
+		config->list_count--;
+		return LC_SUCCESS;
+	}
+
+	temp = element;
+	prev_element->next = element->next;
+
+	_free_list_element(temp);
+	
+	config->error_type = LC_ERR_NONE;
+	config->list_count--;
+	return LC_SUCCESS;
+}
+
+static void _delete_list(struct _lc_config_list *list)
+{
+	if(list == NULL)
+		return;
+
+	struct _lc_config_list *head = list;
+	struct _lc_config_list *temp = NULL;
+
+	while(head != NULL)
+	{
+		temp = head;
+		head = head->next;
+
+		_free_list_element(temp);
+	}
+}
+
 static int _rewrite_list_element(lc_config_t *config, const char *name, struct _lc_config_variable * new_variable)
 {
 	assert(config != NULL);
@@ -362,21 +388,6 @@ static int _rewrite_list_element(lc_config_t *config, const char *name, struct _
 
 	config->error_type = LC_ERR_NONE;
 	return LC_SUCCESS;
-}
-
-static void _print_list(struct _lc_config_list *list)
-{
-	assert(list != NULL);
-
-	struct _lc_config_list *head = list;
-
-	//printf("%s:\n", config_name);
-	while(head != NULL)
-	{
-		printf("%s=%s\n", head->variable->name, head->variable->value);
-		head = head->next;
-	}
-	printf("\n");
 }
 
 // main io functions
@@ -406,7 +417,6 @@ static int _read_file_to_config(lc_config_t *config, FILE *fp)
 		}
 
 		free(line);
-		//free(variable);
 	}
 
 	return LC_SUCCESS;
@@ -445,6 +455,7 @@ static int _dump_config_to_file(lc_config_t *config, FILE *fp)
 		head = head->next;
 	}
 
+	config->error_type = LC_ERR_NONE;
 	return LC_SUCCESS;
 }
 
@@ -458,6 +469,7 @@ void lc_init_config(lc_config_t *config)
 	config->list_count = 0;
 	config->error_type = LC_ERR_NONE;
 	//config->file = file; // if it's null, set null.
+	// maybe status (-_-)
 }
 
 int lc_load_config(lc_config_t *config, const char *filename)
@@ -486,7 +498,6 @@ int lc_load_config(lc_config_t *config, const char *filename)
 
 	fclose(fp);
 
-	config->error_type = LC_ERR_NONE;
 	return LC_SUCCESS;
 }
 
@@ -510,7 +521,6 @@ int lc_dump_config(lc_config_t *config, const char *filename)
 
 	fclose(fp);
 
-	config->error_type = LC_ERR_NONE;
 	return LC_SUCCESS;
 }
 
@@ -533,7 +543,6 @@ int lc_add_variable(lc_config_t *config, const char *name, const char *value)
 		return LC_ERROR;
 	}
 
-	//free(variable);
 	return LC_SUCCESS;
 }
 
@@ -548,11 +557,9 @@ int lc_delete_variable(lc_config_t *config, const char *name)
 		return LC_ERROR;
 	}
 
-	// TODO: think about _find_elem() that returns previous element (for delete_elem())
 	if((_delete_list_element(config, name)) == LC_ERROR)
 		return LC_ERROR;
 
-	config->error_type = LC_ERR_NONE;
 	return LC_SUCCESS;
 }
 
@@ -572,7 +579,6 @@ lc_existence_t lc_is_variable_in_config(lc_config_t *config, const char *name)
 	if((head = _find_list_element(config, name)) == NULL)
 		return LC_EF_NOT_EXISTS;
 
-	config->error_type = LC_ERR_NONE;
 	return LC_EF_EXISTS;
 }
 
