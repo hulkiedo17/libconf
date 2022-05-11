@@ -112,7 +112,7 @@ static int _write_line_to_file(FILE *fp, const char *line)
 
 // config list api
 
-static void _free_config_variable(struct _lc_config_variable *variable)
+static void _free_config_variable(lc_config_variable_t *variable)
 {
 	if(variable == NULL)
 		return;
@@ -131,11 +131,11 @@ static void _free_list_element(struct _lc_config_list *element)
 	free(element);
 }
 
-static struct _lc_config_variable* _make_config_variable(const char *name, const char *value)
+static lc_config_variable_t* _make_config_variable(const char *name, const char *value)
 {
-	struct _lc_config_variable *new_variable = NULL;
+	lc_config_variable_t *new_variable = NULL;
 
-	new_variable = malloc(sizeof(struct _lc_config_variable));
+	new_variable = malloc(sizeof(lc_config_variable_t));
 	if(new_variable == NULL)
 		return NULL;
 
@@ -157,7 +157,7 @@ static struct _lc_config_variable* _make_config_variable(const char *name, const
 	return new_variable;
 }
 
-static struct _lc_config_list* _create_list_element(struct _lc_config_variable *variable)
+static struct _lc_config_list* _create_list_element(lc_config_variable_t *variable)
 {
 	assert(variable != NULL);
 
@@ -173,7 +173,7 @@ static struct _lc_config_list* _create_list_element(struct _lc_config_variable *
 	return element;
 }
 
-static struct _lc_config_variable* _convert_line_to_variable(const char *line)
+static lc_config_variable_t* _convert_line_to_variable(const char *line)
 {
 	assert(line != NULL);
 
@@ -184,13 +184,13 @@ static struct _lc_config_variable* _convert_line_to_variable(const char *line)
 	char *name = strtok(dup_line, "=");
 	char *value = strtok(NULL, "=");
 
-	struct _lc_config_variable *variable = _make_config_variable(name, value);
+	lc_config_variable_t *variable = _make_config_variable(name, value);
 
 	free(dup_line);
 	return variable;
 }
 
-static char* _convert_variable_to_line(struct _lc_config_variable *variable)
+static char* _convert_variable_to_line(lc_config_variable_t *variable)
 {
 	assert(variable != NULL);
 
@@ -225,7 +225,7 @@ static void _print_list(struct _lc_config_list *list)
 	printf("\n");
 }
 
-static int _add_list_element(lc_config_t *config, struct _lc_config_variable *variable)
+static int _add_list_element(lc_config_t *config, lc_config_variable_t *variable)
 {
 	assert(config != NULL);
 	assert(variable != NULL);
@@ -394,7 +394,7 @@ static int _read_file_to_config(lc_config_t *config, FILE *fp)
 	assert(fp != NULL);
 
 	char *line = NULL;
-	struct _lc_config_variable * variable = NULL;
+	lc_config_variable_t * variable = NULL;
 
 	while((line = _read_line_from_file(fp)) != NULL)
 	{
@@ -526,7 +526,7 @@ int lc_add_variable(lc_config_t *config, const char *name, const char *value)
 	assert(name != NULL);
 	assert(value != NULL);
 
-	struct _lc_config_variable * variable = _make_config_variable(name, value);
+	lc_config_variable_t * variable = _make_config_variable(name, value);
 	if(variable == NULL)
 	{
 		config->error_type = LC_ERR_MEMORY_NO;
@@ -596,7 +596,7 @@ int lc_set_variable(lc_config_t *config, const char *name, const char *new_value
 	return LC_SUCCESS;
 }
 
-struct _lc_config_variable* lc_get_variable(lc_config_t *config, const char *name)
+lc_config_variable_t* lc_get_variable(lc_config_t *config, const char *name)
 {
 	assert(config != NULL);
 	assert(name != NULL);

@@ -22,15 +22,15 @@ typedef enum lc_existence
 	LC_EF_NOT_EXISTS = 2
 } lc_existence_t;
 
-struct _lc_config_variable
+typedef struct lc_config_variable
 {
 	char * name;
 	char * value;
-};
+} lc_config_variable_t;
 
 struct _lc_config_list
 {
-	struct _lc_config_variable *variable;
+	lc_config_variable_t *variable;
 	struct _lc_config_list *next;
 };
 
@@ -40,7 +40,6 @@ typedef struct lc_config
 	size_t list_count;
 	enum _lc_config_error error_type;
 	// char *file;
-	// enum status_t status;
 } lc_config_t;
 
 
@@ -67,7 +66,7 @@ lc_existence_t lc_is_variable_in_config(lc_config_t *config, const char *name);
 
 int lc_set_variable(lc_config_t *config, const char *name, const char *new_value);
 
-struct _lc_config_variable* lc_get_variable(lc_config_t *config, const char *name);
+lc_config_variable_t* lc_get_variable(lc_config_t *config, const char *name);
 
 // char* get_variable_name()
 // char* get_variable_value()
