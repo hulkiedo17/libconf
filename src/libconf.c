@@ -368,23 +368,19 @@ static void _delete_list(struct _lc_config_list *list)
 	}
 }
 
-static int _rewrite_list_element(lc_config_t *config, const char *name, struct _lc_config_variable * new_variable)
+static int _rewrite_list_element_value(lc_config_t *config, const char *name, const char *new_value)
 {
 	assert(config != NULL);
 	assert(name != NULL);
-	assert(new_variable != NULL);
+	assert(new_value != NULL);
 
 	struct _lc_config_list *element = NULL;
 
 	if((element = _find_list_element(config, name)) == NULL)
 		return LC_ERROR;
 
-	//free(element->variable->value);
-	//element->variable->value = new_value;
-
-	_free_config_variable(element->variable);
-
-	element->variable = new_variable;
+	free(element->variable->value);
+	element->variable->value = _duplicate_string(new_value);
 
 	config->error_type = LC_ERR_NONE;
 	return LC_SUCCESS;
@@ -582,9 +578,6 @@ lc_existence_t lc_is_variable_in_config(lc_config_t *config, const char *name)
 	return LC_EF_EXISTS;
 }
 
-// TODO:
-// you don't allocate memory for new struct variable, just free value and alloc new
-// make for this new functions
 int lc_set_variable(lc_config_t *config, const char *name, const char *new_value)
 {
 	assert(config != NULL);
@@ -597,14 +590,7 @@ int lc_set_variable(lc_config_t *config, const char *name, const char *new_value
 		return LC_ERROR;
 	}
 
-	struct _lc_config_variable *new_variable = _make_config_variable(name, new_value);
-	if(new_variable == NULL)
-	{
-		config->error_type = LC_ERR_MEMORY_NO;
-		return LC_ERROR;
-	}
-
-	if(_rewrite_list_element(config, name, new_variable) != LC_SUCCESS)
+	if(_rewrite_list_element_value(config, name, new_value) != LC_SUCCESS)
 		return LC_ERROR;
 
 	return LC_SUCCESS;
