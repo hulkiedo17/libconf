@@ -3,7 +3,7 @@
 
 #define LINE_SIZE 256
 #define LC_SUCCESS 0
-#define LC_ERROR 1
+#define LC_ERROR -1
 
 enum _lc_config_error
 {
@@ -39,14 +39,14 @@ typedef struct lc_config
 	struct _lc_config_list *list;
 	size_t list_size;
 	enum _lc_config_error error_type;
-	//char *filepath;
+	char *filepath;
 } lc_config_t;
 
 
-// basic functions for init and clear config
+// basic config functions
 void lc_init_config(lc_config_t *config);
 
-//void lc_init_config_file(lc_config_t *config, const char *filepath);
+int lc_init_config_file(lc_config_t *config, const char *filepath);
 
 void lc_clear_config(lc_config_t *config);
 
@@ -54,19 +54,27 @@ size_t lc_get_size(const lc_config_t *config);
 
 int lc_is_empty(const lc_config_t *config);
 
+char* lc_get_path(const lc_config_t *config);
+
+int lc_set_path(lc_config_t *config, const char *filepath);
+
+void lc_clear_path(lc_config_t *config);
+
+void lc_print_path(const lc_config_t *config);
+
 
 // io functions for config
 int lc_load_config_file(lc_config_t *config, const char *filepath);
 
 int lc_load_config_stream(lc_config_t *config, FILE *fp);
 
-//int lc_load_config(lc_config_t *config);
+int lc_load_config(lc_config_t *config);
 
 int lc_dump_config_file(lc_config_t *config, const char *filepath);
 
 int lc_dump_config_stream(lc_config_t *config, FILE *fp);
 
-//int lc_dump_config(lc_config_t *config);
+int lc_dump_config(lc_config_t *config);
 
 void lc_print_config(const lc_config_t *config);
 

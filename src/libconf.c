@@ -459,30 +459,52 @@ static int _dump_config_to_file(lc_config_t *config, FILE *fp)
 
 void lc_init_config(lc_config_t *config)
 {
-	assert(config != NULL);
+	if(config == NULL)
+	{
+		fprintf(stderr, "[CONFIG] %s : argument is null\n", __func__);
+		return;
+	}
 
 	config->list = NULL;
 	config->list_size = 0;
 	config->error_type = LC_ERR_NONE;
-	//config->filepath = NULL;
+	config->filepath = NULL;
 }
 
-/*void lc_init_config_file(lc_config_t *config, const char *filepath)
+int lc_init_config_file(lc_config_t *config, const char *filepath)
 {
-	assert(config != NULL);
-	assert(filepath != NULL);
+	if(config == NULL || filepath == NULL)
+	{
+		fprintf(stderr, "[CONFIG] %s : arguments is null\n", __func__);
+
+		if(config != NULL)
+			config->error_type = LC_ERR_MEMORY_NO;
+		return LC_ERROR;
+	}
 
 	config->list = NULL;
 	config->list_size = 0;
+
+	if((config->filepath = _duplicate_string(filepath)) == NULL)
+	{
+		config->error_type = LC_ERR_MEMORY_NO;
+		return LC_ERROR;
+	}
+
 	config->error_type = LC_ERR_NONE;
-	config->filepath = _duplicate_string(filepath);
+	return LC_SUCCESS;
 }
-*/
 
 int lc_load_config_file(lc_config_t *config, const char *filepath)
 {
-	assert(config != NULL);
-	assert(filepath != NULL);
+	if(config == NULL || filepath == NULL)
+	{
+		fprintf(stderr, "[CONFIG] %s : arguments is null\n", __func__);
+
+		if(config != NULL)
+			config->error_type = LC_ERR_MEMORY_NO;
+		return LC_ERROR;
+	}
 
 	if(_file_exists(filepath) != 0)
 	{
@@ -510,16 +532,66 @@ int lc_load_config_file(lc_config_t *config, const char *filepath)
 
 int lc_load_config_stream(lc_config_t *config, FILE *fp)
 {
-	assert(config != NULL);
-	assert(fp != NULL);
+	if(config == NULL || fp == NULL)
+	{
+		fprintf(stderr, "[CONFIG] %s : arguments is null\n", __func__);
+
+		if(config != NULL)
+			config->error_type = LC_ERR_MEMORY_NO;
+		return LC_ERROR;
+	}
 
 	return _read_file_to_config(config, fp);
 }
 
+int lc_load_config(lc_config_t *config)
+{
+	if(config == NULL)
+	{
+		fprintf(stderr, "[CONFIG] %s : argument is null\n", __func__);
+		return LC_ERROR;
+	}
+
+	if(config->filepath == NULL)
+	{
+		config->error_type = LC_ERR_FILE_NO;
+		return LC_ERROR;
+	}
+
+	if(_file_exists(config->filepath) != 0)
+	{
+		config->error_type = LC_ERR_FILE_NO;
+		return LC_ERROR;
+	}
+
+	FILE *fp = _file_open(config->filepath, "r");
+	if(fp == NULL)
+	{
+		config->error_type = LC_ERR_FILE_NO;
+		return LC_ERROR;
+	}
+
+	if(_read_file_to_config(config, fp) == LC_ERROR)
+	{
+		fclose(fp);
+		return LC_ERROR;
+	}
+
+	fclose(fp);
+
+	return LC_SUCCESS;
+}
+
 int lc_dump_config_file(lc_config_t *config, const char *filepath)
 {
-	assert(config != NULL);
-	assert(filepath != NULL);
+	if(config == NULL || filepath == NULL)
+	{
+		fprintf(stderr, "[CONFIG] %s : arguments is null\n", __func__);
+
+		if(config != NULL)
+			config->error_type = LC_ERR_MEMORY_NO;
+		return LC_ERROR;
+	}
 
 	FILE *fp = _file_open(filepath, "w");
 	if(fp == NULL)
@@ -541,17 +613,60 @@ int lc_dump_config_file(lc_config_t *config, const char *filepath)
 
 int lc_dump_config_stream(lc_config_t *config, FILE *fp)
 {
-	assert(config != NULL);
-	assert(fp != NULL);
+	if(config == NULL || fp == NULL)
+	{
+		fprintf(stderr, "[CONFIG] %s : arguments is null\n", __func__);
+
+		if(config != NULL)
+			config->error_type = LC_ERR_MEMORY_NO;
+		return LC_ERROR;
+	}
 
 	return _dump_config_to_file(config, fp);
 }
 
+int lc_dump_config(lc_config_t *config)
+{
+	if(config == NULL)
+	{
+		fprintf(stderr, "[CONFIG] %s : argument is null\n", __func__);
+		return LC_ERROR;
+	}
+
+	if(config->filepath == NULL)
+	{
+		config->error_type = LC_ERR_FILE_NO;
+		return LC_ERROR;
+	}
+
+	FILE *fp = _file_open(config->filepath, "w");
+	if(fp == NULL)
+	{
+		config->error_type = LC_ERR_FILE_NO;
+		return LC_ERROR;
+	}
+
+	if(_dump_config_to_file(config, fp) == LC_ERROR)
+	{
+		fclose(fp);
+		return LC_ERROR;
+	}
+
+	fclose(fp);
+
+	return LC_SUCCESS;
+}
+
 int lc_add_variable(lc_config_t *config, const char *name, const char *value)
 {
-	assert(config != NULL);
-	assert(name != NULL);
-	assert(value != NULL);
+	if(config == NULL || name == NULL || value == NULL)
+	{
+		fprintf(stderr, "[CONFIG] %s : arguments is null\n", __func__);
+
+		if(config != NULL)
+			config->error_type = LC_ERR_MEMORY_NO;
+		return LC_ERROR;
+	}
 
 	lc_config_variable_t * variable = _make_config_variable(name, value);
 	if(variable == NULL)
@@ -571,8 +686,15 @@ int lc_add_variable(lc_config_t *config, const char *name, const char *value)
 
 int lc_delete_variable(lc_config_t *config, const char *name)
 {
-	assert(config != NULL);
-	assert(name != NULL);
+	if(config == NULL || name == NULL)
+	{
+		fprintf(stderr, "[CONFIG] %s : arguments is null\n", __func__);
+
+		if(config != NULL)
+			config->error_type = LC_ERR_MEMORY_NO;
+		return LC_ERROR;
+	}
+
 
 	if(config->list == NULL)
 	{
@@ -588,8 +710,14 @@ int lc_delete_variable(lc_config_t *config, const char *name)
 
 lc_existence_t lc_is_variable_in_config(lc_config_t *config, const char *name)
 {
-	assert(config != NULL);
-	assert(name != NULL);
+	if(config == NULL || name == NULL)
+	{
+		fprintf(stderr, "[CONFIG] %s : arguments is null\n", __func__);
+
+		if(config != NULL)
+			config->error_type = LC_ERR_MEMORY_NO;
+		return LC_EF_ERROR;
+	}
 
 	if(config->list == NULL)
 	{
@@ -607,9 +735,14 @@ lc_existence_t lc_is_variable_in_config(lc_config_t *config, const char *name)
 
 int lc_set_variable(lc_config_t *config, const char *name, const char *new_value)
 {
-	assert(config != NULL);
-	assert(name != NULL);
-	assert(new_value != NULL);
+	if(config == NULL || name == NULL || new_value == NULL)
+	{
+		fprintf(stderr, "[CONFIG] %s : arguments is null\n", __func__);
+
+		if(config != NULL)
+			config->error_type = LC_ERR_MEMORY_NO;
+		return LC_ERROR;
+	}
 
 	if(config->list == NULL)
 	{
@@ -625,8 +758,14 @@ int lc_set_variable(lc_config_t *config, const char *name, const char *new_value
 
 lc_config_variable_t* lc_get_variable(lc_config_t *config, const char *name)
 {
-	assert(config != NULL);
-	assert(name != NULL);
+	if(config == NULL || name == NULL)
+	{
+		fprintf(stderr, "[CONFIG] %s : arguments is null\n", __func__);
+
+		if(config != NULL)
+			config->error_type = LC_ERR_MEMORY_NO;
+		return NULL;
+	}
 
 	if(config->list == NULL)
 	{
@@ -644,13 +783,25 @@ lc_config_variable_t* lc_get_variable(lc_config_t *config, const char *name)
 
 void lc_print_config(const lc_config_t *config)
 {
+	if(config == NULL)
+	{
+		fprintf(stderr, "[CONFIG] %s : argument is null\n", __func__);
+		return;
+	}
+
+	if(config->list == NULL)
+		return;
+
 	_print_list(config->list);
 }
 
 int lc_print_error(const lc_config_t *config)
 {
 	if(config == NULL)
+	{
+		fprintf(stderr, "[CONFIG] %s : argument is null\n", __func__);
 		return LC_ERROR;
+	}
 
 	const char * const error_msg[6] = {
 		"LC_ERR_NONE",
@@ -672,10 +823,11 @@ void lc_clear_config(lc_config_t *config)
 
 	_delete_list(config->list);
 
+	free(config->filepath);
+
 	config->list_size = 0;
 	config->error_type = LC_ERR_NONE;
-	//if(config->filepath != NULL)
-	//	free(config->filepath);
+	config->filepath = NULL;
 }
 
 size_t lc_get_size(const lc_config_t *config)
@@ -688,7 +840,69 @@ size_t lc_get_size(const lc_config_t *config)
 
 int lc_is_empty(const lc_config_t *config)
 {
+	if(config == NULL)
+	{
+		fprintf(stderr, "[CONFIG] %s : argument is null\n", __func__);
+		return LC_ERROR;
+	}
+
 	return config->list_size == 0;
+}
+
+char* lc_get_path(const lc_config_t *config)
+{
+	if(config == NULL)
+	{
+		fprintf(stderr, "[CONFIG] %s : argument is null\n", __func__);
+		return NULL;
+	}
+
+	return config->filepath;
+}
+
+int lc_set_path(lc_config_t *config, const char *filepath)
+{
+	if(config == NULL || filepath == NULL)
+	{
+		fprintf(stderr, "[CONFIG] %s : arguments is null\n", __func__);
+
+		if(config != NULL)
+			config->error_type = LC_ERR_MEMORY_NO;
+		return LC_ERROR;
+	}
+
+	free(config->filepath);
+	
+	if((config->filepath = _duplicate_string(filepath)) == NULL)
+	{
+		config->error_type = LC_ERR_MEMORY_NO;
+		return LC_ERROR;
+	}
+
+	return LC_SUCCESS;
+}
+
+void lc_clear_path(lc_config_t *config)
+{
+	if(config == NULL)
+		return;
+
+	free(config->filepath);
+	config->filepath = NULL;
+}
+
+void lc_print_path(const lc_config_t *config)
+{
+	if(config == NULL)
+	{
+		fprintf(stderr, "[CONFIG] %s : argument is null\n", __func__);
+		return;
+	}
+
+	if(config->filepath == NULL)
+		printf("filepath is null.\n");
+	else
+		printf("filepath: %s\n", config->filepath);
 }
 
 // variables functions
