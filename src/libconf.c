@@ -386,6 +386,17 @@ static int _rewrite_list_element_value(lc_config_t *config, const char *name, co
 	return LC_SUCCESS;
 }
 
+static int _replace_variable_in_list(struct _lc_config_list *list, lc_config_variable_t *variable)
+{
+	assert(list != NULL);
+	assert(variable != NULL);
+
+	_free_config_variable(list->variable);
+	list->variable = variable;
+
+	return LC_SUCCESS;
+}
+
 // config io functions
 
 static int _read_file_to_config(lc_config_t *config, FILE *fp)
@@ -657,9 +668,10 @@ int lc_dump_config(lc_config_t *config)
 	return LC_SUCCESS;
 }
 
-int lc_add_variable(lc_config_t *config, const char *name, const char *value)
+//int lc_add_variable(lc_config_t *config, const char *name, const char *value)
+int lc_add_variable(lc_config_t *config, lc_config_variable_t *variable)
 {
-	if(config == NULL || name == NULL || value == NULL)
+	if(config == NULL || variable == NULL)
 	{
 		fprintf(stderr, "[CONFIG] %s : arguments is null\n", __func__);
 
@@ -668,12 +680,13 @@ int lc_add_variable(lc_config_t *config, const char *name, const char *value)
 		return LC_ERROR;
 	}
 
+	/*
 	lc_config_variable_t * variable = _make_config_variable(name, value);
 	if(variable == NULL)
 	{
 		config->error_type = LC_ERR_MEMORY_NO;
 		return LC_ERROR;
-	}
+	}*/
 
 	if(_add_list_element(config, variable) == LC_ERROR)
 	{
@@ -779,6 +792,39 @@ lc_config_variable_t* lc_get_variable(lc_config_t *config, const char *name)
 		return NULL;
 
 	return head->variable;
+}
+
+int lc_replace_variable(lc_config_t *config, const char *name, lc_config_variable_t *variable)
+{
+	if(config == NULL || name == NULL || variable == NULL)
+	{
+		fprintf(stderr, "[CONFIG] %s : arguments is null\n", __func__);
+
+		if(config != NULL)
+			config->error_type = LC_ERR_MEMORY_NO;
+		return LC_ERROR;
+	}
+
+	if(config->list == NULL)
+	{
+		config->error_type = LC_ERR_EMPTY;
+		return LC_ERROR;
+	}
+
+	struct _lc_config_list *head = NULL;
+
+	if((head = _find_list_element(config, name)) == NULL)
+		return LC_ERROR;
+
+	//if(_replace_variable_in_list(head, variable) == LC_ERROR)
+	//{
+	//	config->error_type = LC_ERR_
+	//	return LC_ERROR;
+	//}
+
+	_replace_variable_in_list(head, variable);
+
+	return LC_SUCCESS;
 }
 
 void lc_print_config(const lc_config_t *config)

@@ -82,7 +82,7 @@ int lc_print_error(const lc_config_t *config);
 
 
 // functions for editing variables in config 
-int lc_add_variable(lc_config_t *config, const char *name, const char *value);
+int lc_add_variable(lc_config_t *config, lc_config_variable_t *variable);
 
 int lc_delete_variable(lc_config_t *config, const char *name);
 
@@ -92,11 +92,10 @@ int lc_set_variable(lc_config_t *config, const char *name, const char *new_value
 
 lc_config_variable_t* lc_get_variable(lc_config_t *config, const char *name);
 
-// int add_variable() // variable, not 2 char pointers
+int lc_replace_variable(lc_config_t *config, const char *name, lc_config_variable_t *variable);
+
 // int delete_variable() // variable, not char pointer
 // ___ is_var_in_config() // variable, not char pointer
-// int replace_variable(var, var)
-// int replace_variable(char*, var)
 
 
 // functions for editing variables
