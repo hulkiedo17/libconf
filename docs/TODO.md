@@ -2,16 +2,16 @@
 
 - code:
 - [x] add more error checks
-- [ ] make code more understandable
+- [x] make code more understandable
 - [x] edit all code to one style
 - [ ] add comments to header file
-- [ ] redesign library(add buffer)
+- [x] redesign library(add buffer)
+- [ ] add array in variables
+- [ ] make a switch between different styles of lines
 
 - functions:
-- [ ] data save_data_and_delete(file)
-- [ ] void insert_data_to_new_file(file, data)
-- [ ] void show_data(data)
-- [ ] get_variable_and_insert(file1, file2, var)
+- [ ] data save_data_and_delete(config, file)
+- [ ] get_variable_and_insert(config1, config2, variable)
 
 - docs:
 - [x] add an documentation about library usage (docs/usage.md)
