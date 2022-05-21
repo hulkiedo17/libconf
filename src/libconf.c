@@ -49,6 +49,14 @@ static char* _duplicate_string(const char *string)
 	return duplicate;
 }
 
+static char* _find_delimiter(const char * string, const char * delim)
+{
+	assert(string != NULL);
+	assert(delim != NULL);
+
+	return strstr(string, delim);
+}
+
 static char* _read_line_from_file(FILE *fp)
 {
 	assert(fp != NULL);
@@ -180,19 +188,25 @@ static struct _lc_config_list* _create_list_element(lc_config_variable_t *variab
 	return element;
 }
 
-// TODO: add support for custom delimiters
-static lc_config_variable_t* _convert_line_to_variable(const char *line)
+static lc_config_variable_t* _convert_line_to_variable(const char *line, const char *delim)
 {
 	assert(line != NULL);
+	assert(delim != NULL);
 
 	char *dup_line = _duplicate_string(line);
 	if(dup_line == NULL)
 		return NULL;
 
-	// TODO: check for delimiter exists
+	
+	if(_find_delimiter(line, delim) == NULL)
+	{
+		free(dup_line);
+		fprintf(stderr, "[WARNING] %s: cannot find \"%s\" delimiter in line \"%s\"\n", __func__, delim, line);
+		return NULL;
+	}
 
-	char *name = strtok(dup_line, "=");
-	char *value = strtok(NULL, "=");
+	char *name = strtok(dup_line, delim);
+	char *value = strtok(NULL, delim);
 
 	lc_config_variable_t *variable = _make_config_variable(name, value);
 
@@ -200,13 +214,13 @@ static lc_config_variable_t* _convert_line_to_variable(const char *line)
 	return variable;
 }
 
-// TODO: add support for custom delimiters
-static char* _convert_variable_to_line(lc_config_variable_t *variable)
+static char* _convert_variable_to_line(lc_config_variable_t *variable, const char *delim)
 {
 	assert(variable != NULL);
+	assert(delim != NULL);
 
-	// +3 because we also add: '=', '\n', '\0'
-	size_t length = strlen(variable->name) + strlen(variable->value) + 3;
+	// +2 because we also add: '\n', '\0'
+	size_t length = strlen(variable->name) + strlen(variable->value) + strlen(delim) + 2;
 
 	char *line = calloc(length, sizeof(char));
 	if(line == NULL) {
@@ -214,7 +228,7 @@ static char* _convert_variable_to_line(lc_config_variable_t *variable)
 		exit(EXIT_FAILURE);
 	}
 
-	if(snprintf(line, length, "%s=%s\n", variable->name, variable->value) != ((int)length - 1))
+	if(snprintf(line, length, "%s%s%s\n", variable->name, delim, variable->value) != ((int)length - 1))
 	{
 		free(line);
 		return NULL;
@@ -412,7 +426,6 @@ static int _replace_variable_in_list(struct _lc_config_list *list, lc_config_var
 
 // config io functions
 
-// TODO: add support for custom delimiters
 static int _read_file_to_config(lc_config_t *config, FILE *fp)
 {
 	assert(config != NULL);
@@ -423,11 +436,12 @@ static int _read_file_to_config(lc_config_t *config, FILE *fp)
 
 	while((line = _read_line_from_file(fp)) != NULL)
 	{
-		if((variable = _convert_line_to_variable(line)) == NULL)
+		if((variable = _convert_line_to_variable(line, config->delim)) == NULL)
 		{
 			free(line);
 			config->error_type = LC_ERR_MEMORY_NO;
-			return LC_ERROR;
+			//return LC_ERROR;
+			continue;
 		}
 
 		if(_add_list_element(config, variable) == LC_ERROR)
@@ -443,7 +457,6 @@ static int _read_file_to_config(lc_config_t *config, FILE *fp)
 	return LC_SUCCESS;
 }
 
-// TODO: add support for custom delimiters
 static int _dump_config_to_file(lc_config_t *config, FILE *fp)
 {
 	assert(config != NULL);
@@ -460,7 +473,7 @@ static int _dump_config_to_file(lc_config_t *config, FILE *fp)
 
 	while(head != NULL)
 	{
-		if((line = _convert_variable_to_line(head->variable)) == NULL)
+		if((line = _convert_variable_to_line(head->variable, config->delim)) == NULL)
 		{
 			config->error_type = LC_ERR_MEMORY_NO;
 			return LC_ERROR;
@@ -483,36 +496,34 @@ static int _dump_config_to_file(lc_config_t *config, FILE *fp)
 
 // config functions
 
-void lc_init_config(lc_config_t *config)
+int lc_init_config(lc_config_t *config, const char *filepath, const char *delim)
 {
-	if(config == NULL)
-	{
-		fprintf(stderr, "[WARNING] %s: argument is null\n", __func__);
-		return;
-	}
-
-	config->list = NULL;
-	config->list_size = 0;
-	config->error_type = LC_ERR_NONE;
-	config->filepath = NULL;
-}
-
-int lc_init_config_file(lc_config_t *config, const char *filepath)
-{
-	if(config == NULL || filepath == NULL)
+	if(config == NULL || delim == NULL)
 	{
 		fprintf(stderr, "[WARNING] %s: arguments is null\n", __func__);
-
-		if(config != NULL)
-			config->error_type = LC_ERR_MEMORY_NO;
 		return LC_ERROR;
 	}
 
 	config->list = NULL;
 	config->list_size = 0;
+	config->delim = NULL;
 
-	if((config->filepath = _duplicate_string(filepath)) == NULL)
+	if(filepath != NULL)
 	{
+		if((config->filepath = _duplicate_string(filepath)) == NULL)
+		{
+			config->error_type = LC_ERR_MEMORY_NO;
+			return LC_ERROR;
+		}
+	}
+	else
+	{
+		config->filepath = NULL;
+	}
+
+	if((config->delim = _duplicate_string(delim)) == NULL)
+	{
+		free(config->filepath);
 		config->error_type = LC_ERR_MEMORY_NO;
 		return LC_ERROR;
 	}
@@ -872,10 +883,55 @@ void lc_clear_config(lc_config_t *config)
 	_delete_list(config->list);
 
 	free(config->filepath);
+	free(config->delim);
 
 	config->list_size = 0;
 	config->error_type = LC_ERR_NONE;
 	config->filepath = NULL;
+}
+
+char* lc_get_delim(lc_config_t *config)
+{
+	if(config == NULL) {
+		fprintf(stderr, "[WARNING] %s: argument is null\n", __func__);
+		return NULL;
+	}
+
+	return config->delim;
+}
+
+int lc_set_delim(lc_config_t *config, const char *delim)
+{
+	if(config == NULL || delim == NULL) {
+		fprintf(stderr, "[WARNING] %s: arguments is null\n", __func__);
+
+		if(config != NULL)
+			config->error_type = LC_ERR_MEMORY_NO;
+		return LC_ERROR;
+	}
+
+	free(config->delim);
+	
+	if((config->delim = _duplicate_string(delim)) == NULL)
+	{
+		config->error_type = LC_ERR_MEMORY_NO;
+		return LC_ERROR;
+	}
+
+	return LC_SUCCESS;
+}
+
+void lc_print_delim(lc_config_t *config)
+{
+	if(config == NULL) {
+		fprintf(stderr, "[WARNING] %s: argument is null\n", __func__);
+		return;
+	}
+
+	if(config->delim == NULL)
+		printf("delim is null.\n");
+	else
+		printf("delim: %s\n", config->delim);
 }
 
 size_t lc_get_size(const lc_config_t *config)
