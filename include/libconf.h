@@ -49,18 +49,13 @@ int lc_init_config(lc_config_t *config, const char *filepath, const char *delim)
 
 void lc_clear_config(lc_config_t *config);
 
+size_t lc_get_size(const lc_config_t *config);
 
 char* lc_get_delim(lc_config_t *config);
 
 int lc_set_delim(lc_config_t *config, const char *delim);
 
-void lc_print_delim(lc_config_t *config);
-
-
-size_t lc_get_size(const lc_config_t *config);
-
-int lc_is_empty(const lc_config_t *config);
-
+//int lc_is_empty(const lc_config_t *config);
 
 char* lc_get_path(const lc_config_t *config);
 
@@ -68,23 +63,16 @@ int lc_set_path(lc_config_t *config, const char *filepath);
 
 void lc_clear_path(lc_config_t *config);
 
-void lc_print_path(const lc_config_t *config);
-
 
 
 // io functions for config
-int lc_load_config_file(lc_config_t *config, const char *filepath);
+int lc_load_config(lc_config_t *config, const char *filepath);
 
 int lc_load_config_stream(lc_config_t *config, FILE *fp);
 
-int lc_load_config(lc_config_t *config);
-
-
-int lc_dump_config_file(lc_config_t *config, const char *filepath);
+int lc_dump_config(lc_config_t *config, const char *filepath);
 
 int lc_dump_config_stream(lc_config_t *config, FILE *fp);
-
-int lc_dump_config(lc_config_t *config);
 
 
 void lc_print_config(const lc_config_t *config);
@@ -114,20 +102,17 @@ int lc_replace_variable(lc_config_t *config, const char *name, lc_config_variabl
 // functions for editing variables
 lc_config_variable_t* lc_create_variable(const char *name, const char *value);
 
-void lc_destroy_variable(lc_config_variable_t *variable);
+lc_config_variable_t* lc_create_variable_copy(lc_config_variable_t *variable);
 
+void lc_destroy_variable(lc_config_variable_t *variable);
 
 char* lc_get_variable_name(lc_config_variable_t *variable);
 
 char* lc_get_variable_value(lc_config_variable_t *variable);
 
-
 int lc_set_variable_name(lc_config_variable_t *variable, const char *name);
 
 int lc_set_variable_value(lc_config_variable_t *variable, const char *value);
-
-
-void lc_print_variable(const lc_config_variable_t *variable);
 
 // set_*, get_* -> with int(u and s), float, double
 

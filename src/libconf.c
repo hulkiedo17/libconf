@@ -2,21 +2,24 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <stdarg.h>
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include "libconf.h"
 
-// misc functions
-
-static int _file_exists(const char *path)
+#if defined DEBUG
+static void warning(FILE *out, const char *fmt, ...)
 {
-	assert(path != NULL);
+	va_list ap;
 
-	struct stat buffer;
-
-	return stat(path, &buffer);
+	va_start(ap, fmt);
+	vfprintf(out, fmt, ap);
+	va_end(ap);
 }
+#else
+#define warning(...)
+#endif
 
 static FILE* _file_open(const char *filename, const char *mode)
 {
@@ -25,7 +28,7 @@ static FILE* _file_open(const char *filename, const char *mode)
 
 	FILE *fp = fopen(filename, mode);
 	if(fp == NULL) {
-		fprintf(stderr, "[ERROR] %s: fopen() failed\n", __func__);
+		warning(stderr, "[ERROR] %s: fopen() failed\n", __func__);
 		exit(EXIT_FAILURE);
 	}
 
@@ -40,7 +43,7 @@ static char* _duplicate_string(const char *string)
 
 	char *duplicate = calloc(length, sizeof(char));
 	if(duplicate == NULL) {
-		fprintf(stderr, "[ERROR] %s: allocation failed\n", __func__);
+		warning(stderr, "[ERROR] %s: allocation failed\n", __func__);
 		exit(EXIT_FAILURE);
 	}
 
@@ -66,7 +69,7 @@ static char* _read_line_from_file(FILE *fp)
 	char *line_buffer = calloc(line_length, sizeof(char));
 	if(line_buffer == NULL)
 	{
-		fprintf(stderr, "[ERROR] %s: allocation failed\n", __func__);
+		warning(stderr, "[ERROR] %s: allocation failed\n", __func__);
 		exit(EXIT_FAILURE);
 	}
 
@@ -97,11 +100,12 @@ static char* _read_line_from_file(FILE *fp)
 
 		if(position >= line_length)
 		{
+			// TODO: make temporary pointer
 			line_length += LINE_SIZE;
 			line_buffer = realloc(line_buffer, line_length);
 			if(line_buffer == NULL)
 			{
-				fprintf(stderr, "[ERROR] %s: allocation failed\n", __func__);
+				warning(stderr, "[ERROR] %s: allocation failed\n", __func__);
 				exit(EXIT_FAILURE);
 			}
 		}
@@ -148,7 +152,7 @@ static lc_config_variable_t* _make_config_variable(const char *name, const char 
 
 	new_variable = malloc(sizeof(lc_config_variable_t));
 	if(new_variable == NULL) {
-		fprintf(stderr, "[ERROR] %s: allocation failed\n", __func__);
+		warning(stderr, "[ERROR] %s: allocation failed\n", __func__);
 		exit(EXIT_FAILURE);
 	}
 
@@ -170,6 +174,19 @@ static lc_config_variable_t* _make_config_variable(const char *name, const char 
 	return new_variable;
 }
 
+static lc_config_variable_t* _create_variable_copy(lc_config_variable_t *variable)
+{
+	assert(variable != NULL);
+
+	if(variable->name == NULL)
+		return NULL;
+
+	if(variable->value == NULL)
+		return NULL;
+
+	return _make_config_variable(variable->name, variable->value);
+}
+
 static struct _lc_config_list* _create_list_element(lc_config_variable_t *variable)
 {
 	assert(variable != NULL);
@@ -178,7 +195,7 @@ static struct _lc_config_list* _create_list_element(lc_config_variable_t *variab
 
 	element = malloc(sizeof(struct _lc_config_list));
 	if(element == NULL) {
-		fprintf(stderr, "[ERROR] %s: allocation failed\n", __func__);
+		warning(stderr, "[ERROR] %s: allocation failed\n", __func__);
 		exit(EXIT_FAILURE);
 	}
 
@@ -197,11 +214,11 @@ static lc_config_variable_t* _convert_line_to_variable(const char *line, const c
 	if(dup_line == NULL)
 		return NULL;
 
-	
+
 	if(_find_delimiter(line, delim) == NULL)
 	{
 		free(dup_line);
-		fprintf(stderr, "[WARNING] %s: cannot find \"%s\" delimiter in line \"%s\"\n", __func__, delim, line);
+		warning(stderr, "[WARNING] %s: cannot find \"%s\" delimiter in line \"%s\"\n", __func__, delim, line);
 		return NULL;
 	}
 
@@ -224,13 +241,14 @@ static char* _convert_variable_to_line(lc_config_variable_t *variable, const cha
 
 	char *line = calloc(length, sizeof(char));
 	if(line == NULL) {
-		fprintf(stderr, "[ERROR] %s: allocation failed\n", __func__);
+		warning(stderr, "[ERROR] %s: allocation failed\n", __func__);
 		exit(EXIT_FAILURE);
 	}
 
 	if(snprintf(line, length, "%s%s%s\n", variable->name, delim, variable->value) != ((int)length - 1))
 	{
 		free(line);
+		// TODO: error check
 		return NULL;
 	}
 
@@ -243,7 +261,6 @@ static void _print_list(struct _lc_config_list *list)
 
 	struct _lc_config_list *head = list;
 
-	//printf("%s:\n", config_name);
 	while(head != NULL)
 	{
 		printf("%s=%s\n", head->variable->name, head->variable->value);
@@ -372,7 +389,7 @@ static int _delete_list_element(lc_config_t *config, const char *name)
 	prev_element->next = element->next;
 
 	_free_list_element(temp);
-	
+
 	config->error_type = LC_ERR_NONE;
 	config->list_size--;
 	return LC_SUCCESS;
@@ -424,7 +441,7 @@ static int _replace_variable_in_list(struct _lc_config_list *list, lc_config_var
 	return LC_SUCCESS;
 }
 
-// config io functions
+// io functions
 
 static int _read_file_to_config(lc_config_t *config, FILE *fp)
 {
@@ -440,6 +457,7 @@ static int _read_file_to_config(lc_config_t *config, FILE *fp)
 		{
 			free(line);
 			config->error_type = LC_ERR_MEMORY_NO;
+			// TODO: error check
 			//return LC_ERROR;
 			continue;
 		}
@@ -494,13 +512,13 @@ static int _dump_config_to_file(lc_config_t *config, FILE *fp)
 	return LC_SUCCESS;
 }
 
-// config functions
+// api functions
 
 int lc_init_config(lc_config_t *config, const char *filepath, const char *delim)
 {
 	if(config == NULL || delim == NULL)
 	{
-		fprintf(stderr, "[WARNING] %s: arguments is null\n", __func__);
+		warning(stderr, "[WARNING] %s: arguments is null\n", __func__);
 		return LC_ERROR;
 	}
 
@@ -532,24 +550,37 @@ int lc_init_config(lc_config_t *config, const char *filepath, const char *delim)
 	return LC_SUCCESS;
 }
 
-int lc_load_config_file(lc_config_t *config, const char *filepath)
+int lc_load_config(lc_config_t *config, const char *filepath)
 {
-	if(config == NULL || filepath == NULL)
+	if(config == NULL)
 	{
-		fprintf(stderr, "[WARNING] %s: arguments is null\n", __func__);
-
-		if(config != NULL)
-			config->error_type = LC_ERR_MEMORY_NO;
+		warning(stderr, "[WARNING] %s: argument is null\n", __func__);
 		return LC_ERROR;
 	}
 
-	if(_file_exists(filepath) != 0)
+	/*if(_file_exists(filepath) != 0)
 	{
 		config->error_type = LC_ERR_FILE_NO;
 		return LC_ERROR;
+	}*/
+
+	FILE *fp = NULL;
+
+	if(filepath == NULL) 
+	{
+		if(config->filepath == NULL)
+		{
+			config->error_type = LC_ERR_FILE_NO;
+			return LC_ERROR;
+		}
+
+		fp = _file_open(config->filepath, "r");
+	}
+	else 
+	{
+		fp = _file_open(filepath, "r");
 	}
 
-	FILE *fp = _file_open(filepath, "r");
 	if(fp == NULL)
 	{
 		config->error_type = LC_ERR_FILE_NO;
@@ -571,7 +602,7 @@ int lc_load_config_stream(lc_config_t *config, FILE *fp)
 {
 	if(config == NULL || fp == NULL)
 	{
-		fprintf(stderr, "[WARNING] %s: arguments is null\n", __func__);
+		warning(stderr, "[WARNING] %s: arguments is null\n", __func__);
 
 		if(config != NULL)
 			config->error_type = LC_ERR_MEMORY_NO;
@@ -581,56 +612,31 @@ int lc_load_config_stream(lc_config_t *config, FILE *fp)
 	return _read_file_to_config(config, fp);
 }
 
-int lc_load_config(lc_config_t *config)
+int lc_dump_config(lc_config_t *config, const char *filepath)
 {
 	if(config == NULL)
 	{
-		fprintf(stderr, "[WARNING] %s: argument is null\n", __func__);
+		warning(stderr, "[WARNING] %s: arguments is null\n", __func__);
 		return LC_ERROR;
 	}
 
-	if(config->filepath == NULL)
+	FILE *fp = NULL;
+
+	if(filepath == NULL) 
 	{
-		config->error_type = LC_ERR_FILE_NO;
-		return LC_ERROR;
-	}
+		if(config->filepath == NULL)
+		{
+			config->error_type = LC_ERR_FILE_NO;
+			return LC_ERROR;
+		}
 
-	if(_file_exists(config->filepath) != 0)
+		fp = _file_open(config->filepath, "w");
+	}
+	else 
 	{
-		config->error_type = LC_ERR_FILE_NO;
-		return LC_ERROR;
+		fp = _file_open(filepath, "w");
 	}
 
-	FILE *fp = _file_open(config->filepath, "r");
-	if(fp == NULL)
-	{
-		config->error_type = LC_ERR_FILE_NO;
-		return LC_ERROR;
-	}
-
-	if(_read_file_to_config(config, fp) == LC_ERROR)
-	{
-		fclose(fp);
-		return LC_ERROR;
-	}
-
-	fclose(fp);
-
-	return LC_SUCCESS;
-}
-
-int lc_dump_config_file(lc_config_t *config, const char *filepath)
-{
-	if(config == NULL || filepath == NULL)
-	{
-		fprintf(stderr, "[WARNING] %s: arguments is null\n", __func__);
-
-		if(config != NULL)
-			config->error_type = LC_ERR_MEMORY_NO;
-		return LC_ERROR;
-	}
-
-	FILE *fp = _file_open(filepath, "w");
 	if(fp == NULL)
 	{
 		config->error_type = LC_ERR_FILE_NO;
@@ -652,7 +658,7 @@ int lc_dump_config_stream(lc_config_t *config, FILE *fp)
 {
 	if(config == NULL || fp == NULL)
 	{
-		fprintf(stderr, "[WARNING] %s: arguments is null\n", __func__);
+		warning(stderr, "[WARNING] %s: arguments is null\n", __func__);
 
 		if(config != NULL)
 			config->error_type = LC_ERR_MEMORY_NO;
@@ -662,50 +668,28 @@ int lc_dump_config_stream(lc_config_t *config, FILE *fp)
 	return _dump_config_to_file(config, fp);
 }
 
-int lc_dump_config(lc_config_t *config)
-{
-	if(config == NULL)
-	{
-		fprintf(stderr, "[WARNING] %s: argument is null\n", __func__);
-		return LC_ERROR;
-	}
-
-	if(config->filepath == NULL)
-	{
-		config->error_type = LC_ERR_FILE_NO;
-		return LC_ERROR;
-	}
-
-	FILE *fp = _file_open(config->filepath, "w");
-	if(fp == NULL)
-	{
-		config->error_type = LC_ERR_FILE_NO;
-		return LC_ERROR;
-	}
-
-	if(_dump_config_to_file(config, fp) == LC_ERROR)
-	{
-		fclose(fp);
-		return LC_ERROR;
-	}
-
-	fclose(fp);
-
-	return LC_SUCCESS;
-}
-
 int lc_add_variable(lc_config_t *config, lc_config_variable_t *variable)
 {
 	if(config == NULL || variable == NULL)
 	{
-		fprintf(stderr, "[WARNING] %s: arguments is null\n", __func__);
+		warning(stderr, "[WARNING] %s: arguments is null\n", __func__);
 
 		if(config != NULL)
 			config->error_type = LC_ERR_MEMORY_NO;
 		return LC_ERROR;
 	}
 
-	if(_add_list_element(config, variable) == LC_ERROR)
+	lc_config_variable_t *variable_copy = NULL;
+
+	variable_copy = _create_variable_copy(variable);
+	if(variable_copy == NULL)
+	{
+		warning(stderr, "[WARNING] %s: _create_variable_copy failed\n", __func__);
+		config->error_type = LC_ERR_MEMORY_NO;
+		return LC_ERROR;
+	}
+
+	if(_add_list_element(config, variable_copy) == LC_ERROR)
 	{
 		free(variable);
 		return LC_ERROR;
@@ -718,7 +702,7 @@ int lc_delete_variable(lc_config_t *config, const char *name)
 {
 	if(config == NULL || name == NULL)
 	{
-		fprintf(stderr, "[WARNING] %s: arguments is null\n", __func__);
+		warning(stderr, "[WARNING] %s: arguments is null\n", __func__);
 
 		if(config != NULL)
 			config->error_type = LC_ERR_MEMORY_NO;
@@ -742,7 +726,7 @@ lc_existence_t lc_is_variable_in_config(lc_config_t *config, const char *name)
 {
 	if(config == NULL || name == NULL)
 	{
-		fprintf(stderr, "[WARNING] %s: arguments is null\n", __func__);
+		warning(stderr, "[WARNING] %s: arguments is null\n", __func__);
 
 		if(config != NULL)
 			config->error_type = LC_ERR_MEMORY_NO;
@@ -767,7 +751,7 @@ int lc_set_variable(lc_config_t *config, const char *name, const char *new_value
 {
 	if(config == NULL || name == NULL || new_value == NULL)
 	{
-		fprintf(stderr, "[WARNING] %s: arguments is null\n", __func__);
+		warning(stderr, "[WARNING] %s: arguments is null\n", __func__);
 
 		if(config != NULL)
 			config->error_type = LC_ERR_MEMORY_NO;
@@ -790,7 +774,7 @@ lc_config_variable_t* lc_get_variable(lc_config_t *config, const char *name)
 {
 	if(config == NULL || name == NULL)
 	{
-		fprintf(stderr, "[WARNING] %s: arguments is null\n", __func__);
+		warning(stderr, "[WARNING] %s: arguments is null\n", __func__);
 
 		if(config != NULL)
 			config->error_type = LC_ERR_MEMORY_NO;
@@ -815,7 +799,7 @@ int lc_replace_variable(lc_config_t *config, const char *name, lc_config_variabl
 {
 	if(config == NULL || name == NULL || variable == NULL)
 	{
-		fprintf(stderr, "[WARNING] %s: arguments is null\n", __func__);
+		warning(stderr, "[WARNING] %s: arguments is null\n", __func__);
 
 		if(config != NULL)
 			config->error_type = LC_ERR_MEMORY_NO;
@@ -842,7 +826,7 @@ void lc_print_config(const lc_config_t *config)
 {
 	if(config == NULL)
 	{
-		fprintf(stderr, "[WARNING] %s: argument is null\n", __func__);
+		warning(stderr, "[WARNING] %s: argument is null\n", __func__);
 		return;
 	}
 
@@ -854,9 +838,10 @@ void lc_print_config(const lc_config_t *config)
 
 int lc_print_error(const lc_config_t *config)
 {
+	// TODO: make get_error_str()
 	if(config == NULL)
 	{
-		fprintf(stderr, "[WARNING] %s: argument is null\n", __func__);
+		warning(stderr, "[WARNING] %s: argument is null\n", __func__);
 		return LC_ERROR;
 	}
 
@@ -876,7 +861,7 @@ int lc_print_error(const lc_config_t *config)
 void lc_clear_config(lc_config_t *config)
 {
 	if(config == NULL) {
-		fprintf(stderr, "[WARNING] %s: argument is null\n", __func__);
+		warning(stderr, "[WARNING] %s: argument is null\n", __func__);
 		return;
 	}
 
@@ -893,17 +878,17 @@ void lc_clear_config(lc_config_t *config)
 char* lc_get_delim(lc_config_t *config)
 {
 	if(config == NULL) {
-		fprintf(stderr, "[WARNING] %s: argument is null\n", __func__);
+		warning(stderr, "[WARNING] %s: argument is null\n", __func__);
 		return NULL;
 	}
 
-	return config->delim;
+	return _duplicate_string(config->delim);
 }
 
 int lc_set_delim(lc_config_t *config, const char *delim)
 {
 	if(config == NULL || delim == NULL) {
-		fprintf(stderr, "[WARNING] %s: arguments is null\n", __func__);
+		warning(stderr, "[WARNING] %s: arguments is null\n", __func__);
 
 		if(config != NULL)
 			config->error_type = LC_ERR_MEMORY_NO;
@@ -911,7 +896,7 @@ int lc_set_delim(lc_config_t *config, const char *delim)
 	}
 
 	free(config->delim);
-	
+
 	if((config->delim = _duplicate_string(delim)) == NULL)
 	{
 		config->error_type = LC_ERR_MEMORY_NO;
@@ -921,56 +906,43 @@ int lc_set_delim(lc_config_t *config, const char *delim)
 	return LC_SUCCESS;
 }
 
-void lc_print_delim(lc_config_t *config)
-{
-	if(config == NULL) {
-		fprintf(stderr, "[WARNING] %s: argument is null\n", __func__);
-		return;
-	}
-
-	if(config->delim == NULL)
-		printf("delim is null.\n");
-	else
-		printf("delim: %s\n", config->delim);
-}
-
 size_t lc_get_size(const lc_config_t *config)
 {
 	if(config == NULL) {
-		fprintf(stderr, "[WARNING] %s: argument is null\n", __func__);
+		warning(stderr, "[WARNING] %s: argument is null\n", __func__);
 		return (size_t)0;
 	}
 
 	return config->list_size;
 }
 
-int lc_is_empty(const lc_config_t *config)
+/*int lc_is_empty(const lc_config_t *config)
 {
 	if(config == NULL)
 	{
-		fprintf(stderr, "[WARNING] %s: argument is null\n", __func__);
+		warning(stderr, "[WARNING] %s: argument is null\n", __func__);
 		return LC_ERROR;
 	}
 
 	return config->list_size == 0;
-}
+}*/
 
 char* lc_get_path(const lc_config_t *config)
 {
 	if(config == NULL)
 	{
-		fprintf(stderr, "[WARNING] %s: argument is null\n", __func__);
+		warning(stderr, "[WARNING] %s: argument is null\n", __func__);
 		return NULL;
 	}
 
-	return config->filepath;
+	return _duplicate_string(config->filepath);
 }
 
 int lc_set_path(lc_config_t *config, const char *filepath)
 {
 	if(config == NULL || filepath == NULL)
 	{
-		fprintf(stderr, "[WARNING] %s: arguments is null\n", __func__);
+		warning(stderr, "[WARNING] %s: arguments is null\n", __func__);
 
 		if(config != NULL)
 			config->error_type = LC_ERR_MEMORY_NO;
@@ -978,7 +950,7 @@ int lc_set_path(lc_config_t *config, const char *filepath)
 	}
 
 	free(config->filepath);
-	
+
 	if((config->filepath = _duplicate_string(filepath)) == NULL)
 	{
 		config->error_type = LC_ERR_MEMORY_NO;
@@ -991,7 +963,7 @@ int lc_set_path(lc_config_t *config, const char *filepath)
 void lc_clear_path(lc_config_t *config)
 {
 	if(config == NULL) {
-		fprintf(stderr, "[WARNING] %s: argument is null\n", __func__);
+		warning(stderr, "[WARNING] %s: argument is null\n", __func__);
 		return;
 	}
 
@@ -999,36 +971,30 @@ void lc_clear_path(lc_config_t *config)
 	config->filepath = NULL;
 }
 
-void lc_print_path(const lc_config_t *config)
-{
-	if(config == NULL)
-	{
-		fprintf(stderr, "[WARNING] %s: argument is null\n", __func__);
-		return;
-	}
-
-	if(config->filepath == NULL)
-		printf("filepath is null.\n");
-	else
-		printf("filepath: %s\n", config->filepath);
-}
-
-// variables functions
-
 lc_config_variable_t* lc_create_variable(const char *name, const char *value)
 {
 	if(name == NULL || value == NULL) {
-		fprintf(stderr, "[WARNING] %s: arguments is null\n", __func__);
+		warning(stderr, "[WARNING] %s: arguments is null\n", __func__);
 		return NULL;
 	}
 
 	return _make_config_variable(name, value);
 }
 
+lc_config_variable_t* lc_create_variable_copy(lc_config_variable_t *variable)
+{
+	if(variable == NULL) {
+		warning(stderr, "[WARNING] %s: argument is null\n", __func__);
+		return NULL;
+	}
+
+	return _create_variable_copy(variable);
+}
+
 void lc_destroy_variable(lc_config_variable_t *variable)
 {
 	if(variable == NULL) {
-		fprintf(stderr, "[WARNING] %s: argument is null\n", __func__);
+		warning(stderr, "[WARNING] %s: argument is null\n", __func__);
 		return;
 	}
 
@@ -1038,7 +1004,7 @@ void lc_destroy_variable(lc_config_variable_t *variable)
 char* lc_get_variable_name(lc_config_variable_t *variable)
 {
 	if(variable == NULL) {
-		fprintf(stderr, "[WARNING] %s: argument is null\n", __func__);
+		warning(stderr, "[WARNING] %s: argument is null\n", __func__);
 		return NULL;
 	}
 
@@ -1048,7 +1014,7 @@ char* lc_get_variable_name(lc_config_variable_t *variable)
 char* lc_get_variable_value(lc_config_variable_t *variable)
 {
 	if(variable == NULL) {
-		fprintf(stderr, "[WARNING] %s: argument is null\n", __func__);
+		warning(stderr, "[WARNING] %s: argument is null\n", __func__);
 		return NULL;
 	}
 
@@ -1058,7 +1024,7 @@ char* lc_get_variable_value(lc_config_variable_t *variable)
 int lc_set_variable_name(lc_config_variable_t *variable, const char *name)
 {
 	if(variable == NULL || name == NULL) {
-		fprintf(stderr, "[WARNING] %s: arguments is null\n", __func__);
+		warning(stderr, "[WARNING] %s: arguments is null\n", __func__);
 		return LC_ERROR;
 	}
 
@@ -1071,7 +1037,7 @@ int lc_set_variable_name(lc_config_variable_t *variable, const char *name)
 int lc_set_variable_value(lc_config_variable_t *variable, const char *value)
 {
 	if(variable == NULL || value == NULL) {
-		fprintf(stderr, "[WARNING] %s: arguments is null\n", __func__);
+		warning(stderr, "[WARNING] %s: arguments is null\n", __func__);
 		return LC_ERROR;
 	}
 
@@ -1079,14 +1045,4 @@ int lc_set_variable_value(lc_config_variable_t *variable, const char *value)
 	variable->value = _duplicate_string(value);
 
 	return LC_SUCCESS;
-}
-
-void lc_print_variable(const lc_config_variable_t *variable)
-{
-	if(variable == NULL) {
-		fprintf(stderr, "[WARNING] %s: argument is null\n", __func__);
-		return;
-	}
-
-	printf("%s=%s\n", variable->name, variable->value);
 }
