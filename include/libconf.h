@@ -51,11 +51,11 @@ void lc_clear_config(lc_config_t *config);
 
 size_t lc_get_size(const lc_config_t *config);
 
+char* lc_get_error(const lc_config_t *config);
+
 char* lc_get_delim(lc_config_t *config);
 
 int lc_set_delim(lc_config_t *config, const char *delim);
-
-//int lc_is_empty(const lc_config_t *config);
 
 char* lc_get_path(const lc_config_t *config);
 
@@ -74,10 +74,7 @@ int lc_dump_config(lc_config_t *config, const char *filepath);
 
 int lc_dump_config_stream(lc_config_t *config, FILE *fp);
 
-
 void lc_print_config(const lc_config_t *config);
-
-int lc_print_error(const lc_config_t *config);
 
 
 

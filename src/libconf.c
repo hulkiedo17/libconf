@@ -8,6 +8,15 @@
 #include <sys/types.h>
 #include "libconf.h"
 
+static const char * const error_msg[6] = {
+	"LC_ERR_NONE",
+	"LC_ERR_EMPTY",
+	"LC_ERR_FILE_NO",
+	"LC_ERR_MEMORY_NO",
+	"LC_ERR_WRITE_NO",
+	"LC_ERR_NOT_EXISTS"
+};
+
 #if defined DEBUG
 static void warning(FILE *out, const char *fmt, ...)
 {
@@ -125,7 +134,7 @@ static int _write_line_to_file(FILE *fp, const char *line)
 	return LC_SUCCESS;
 }
 
-// config list functions
+// functions  for config list 
 
 static void _free_config_variable(lc_config_variable_t *variable)
 {
@@ -248,7 +257,7 @@ static char* _convert_variable_to_line(lc_config_variable_t *variable, const cha
 	if(snprintf(line, length, "%s%s%s\n", variable->name, delim, variable->value) != ((int)length - 1))
 	{
 		free(line);
-		// TODO: error check
+		warning(stderr, "[WARNING] %s: snprintf() failed\n", __func__);
 		return NULL;
 	}
 
@@ -457,8 +466,7 @@ static int _read_file_to_config(lc_config_t *config, FILE *fp)
 		{
 			free(line);
 			config->error_type = LC_ERR_MEMORY_NO;
-			// TODO: error check
-			//return LC_ERROR;
+			// if it can't convert line to variable, it's just skip this line
 			continue;
 		}
 
@@ -557,12 +565,6 @@ int lc_load_config(lc_config_t *config, const char *filepath)
 		warning(stderr, "[WARNING] %s: argument is null\n", __func__);
 		return LC_ERROR;
 	}
-
-	/*if(_file_exists(filepath) != 0)
-	{
-		config->error_type = LC_ERR_FILE_NO;
-		return LC_ERROR;
-	}*/
 
 	FILE *fp = NULL;
 
@@ -836,26 +838,21 @@ void lc_print_config(const lc_config_t *config)
 	_print_list(config->list);
 }
 
-int lc_print_error(const lc_config_t *config)
+char* lc_get_error(const lc_config_t *config)
 {
-	// TODO: make get_error_str()
 	if(config == NULL)
 	{
 		warning(stderr, "[WARNING] %s: argument is null\n", __func__);
-		return LC_ERROR;
+		return NULL;
 	}
 
-	const char * const error_msg[6] = {
-		"LC_ERR_NONE",
-		"LC_ERR_EMPTY",
-		"LC_ERR_FILE_NO",
-		"LC_ERR_MEMORY_NO",
-		"LC_ERR_WRITE_NO",
-		"LC_ERR_NOT_EXISTS"
-	};
+	if(config->error_type < 0 || config->error_type > 5)
+	{
+		warning(stderr, "[ERROR] %s: invalid error index\n", __func__);
+		return NULL;
+	}
 
-	fprintf(stderr, "[CONFIG] error_type = %s\n", error_msg[config->error_type]);
-	return LC_SUCCESS;
+	return _duplicate_string(error_msg[config->error_type]);
 }
 
 void lc_clear_config(lc_config_t *config)
@@ -915,17 +912,6 @@ size_t lc_get_size(const lc_config_t *config)
 
 	return config->list_size;
 }
-
-/*int lc_is_empty(const lc_config_t *config)
-{
-	if(config == NULL)
-	{
-		warning(stderr, "[WARNING] %s: argument is null\n", __func__);
-		return LC_ERROR;
-	}
-
-	return config->list_size == 0;
-}*/
 
 char* lc_get_path(const lc_config_t *config)
 {
