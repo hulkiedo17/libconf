@@ -794,7 +794,7 @@ lc_config_variable_t* lc_get_variable(lc_config_t *config, const char *name)
 	if((head = _find_list_element(config, name)) == NULL)
 		return NULL;
 
-	return head->variable;
+	return _create_variable_copy(head->variable);
 }
 
 int lc_replace_variable(lc_config_t *config, const char *name, lc_config_variable_t *variable)
@@ -819,7 +819,17 @@ int lc_replace_variable(lc_config_t *config, const char *name, lc_config_variabl
 	if((head = _find_list_element(config, name)) == NULL)
 		return LC_ERROR;
 
-	_replace_variable_in_list(head, variable);
+	lc_config_variable_t *variable_copy = NULL;
+
+	variable_copy = _create_variable_copy(variable);
+	if(variable_copy == NULL)
+	{
+		warning(stderr, "[WARNING] %s: _create_variable_copy failed\n", __func__);
+		config->error_type = LC_ERR_MEMORY_NO;
+		return LC_ERROR;
+	}
+
+	_replace_variable_in_list(head, variable_copy);
 
 	return LC_SUCCESS;
 }
