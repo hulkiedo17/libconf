@@ -18,6 +18,8 @@ typedef struct lc_config
 ```
 The main configuration structure that stores the linked list of variables, the size of the list, the error type code, the path to the file (optional), and the variable separator (separates the name and value in the variable) (required).
 
+---
+
 ```c
 typedef struct lc_config_variable
 {
@@ -44,6 +46,8 @@ typedef enum lc_existence
 } lc_existence_t;
 ```
 
+---
+
 Configuation errors enumeration:
 This is an enumeration containing error codes that occur when working with lc_config_t (for example: the required element was not found, or the file was not opened) and you can view them for better error handling.
 
@@ -61,8 +65,6 @@ enum _lc_config_error
 
 ## 3 - API
 
-### initialize configuration
-
 ```c
 int lc_init_config(lc_config_t *config, const char *filepath, const char *delim);
 ```
@@ -79,7 +81,7 @@ Return value:
 - LC_ERROR on error.
 - LC_SUCCESS on success.
 
-### cleanup configuration
+---
 
 ```c
 void lc_clear_config(lc_config_t *config);
@@ -88,3 +90,94 @@ Configuration structure cleanup function.
 
 Required argument:
 - config - address of a local lc_config_t variable.
+
+---
+
+```c
+char* lc_get_delim(lc_config_t *config);
+```
+Function to get delimiter from configuration structure.
+
+Required argument:
+- config - address of a local lc_config_t variable.
+
+Return value:
+- NULL on error.
+- pointer to string(delimiter) on success.
+
+(important to know: after use, you need to free the pointer returned from the function from memory.)
+
+---
+
+```c
+int lc_set_delim(lc_config_t *config, const char *delim);
+```
+Function to set new delimiter from configuration structure.
+
+Required argument:
+- config - address of a local lc_config_t variable.
+- delim - a string containing the deliminator for variables.
+
+Return value:
+- LC_ERROR on error.
+- LC_SUCCESS on success.
+
+---
+
+```c
+size_t lc_get_size(const lc_config_t *config);
+```
+А function that returns the size of the list of variables in the configuration structure.
+
+Required argument:
+- config - address of a local lc_config_t variable.
+
+Return value:
+- size_t
+
+---
+
+```c
+char* lc_get_path(const lc_config_t *config);
+```
+
+А function that returns the file path stored in the configuration structure.
+
+Required argument:
+- config - address of a local lc_config_t variable.
+
+Return value:
+- NULL on error.
+- pointer to string(path to file) on success.
+
+(important to know: after use, you need to free the pointer returned from the function from memory.)
+
+---
+
+```c
+int lc_set_path(lc_config_t *config, const char *filepath);
+```
+
+А function that sets the new file path stored in the configuration structure.
+
+Required argument:
+- config - address of a local lc_config_t variable.
+- filepath - a string containing the path to file.
+
+Return value:
+- LC_ERROR on error.
+- LC_SUCCESS on success.
+
+---
+
+```c
+void lc_clear_path(lc_config_t *config);
+```
+
+А function that releases from memory the pointer value that stores the path to the file in the configuration structure.
+
+Required argument:
+- config - address of a local lc_config_t variable.
+
+---
+
