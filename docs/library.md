@@ -181,3 +181,103 @@ Required argument:
 
 ---
 
+```c
+int lc_load_config(lc_config_t *config, const char *filepath);
+```
+
+This function loads data from a file into a config structure.
+
+Required argument:
+- config - address of a local lc_config_t variable.
+- filepath - a string containing the path to file.
+
+(the function can use either the filepath specified in the function arguments, or if it is NULL, then use the filepath in the configuration structure itself, which was given when calling lc_init_config())
+
+Return value:
+- LC_ERROR on error.
+- LC_SUCCESS on success.
+
+---
+
+```c
+int lc_load_config_stream(lc_config_t *config, FILE *fp);
+```
+
+This function loads data from a file stream into a configuration structure.
+
+Required argument:
+- config - address of a local lc_config_t variable.
+- fp - file pointer.
+
+(the function strictly uses the file pointer, if it is NULL, the function will return LC_ERROR)
+
+Return value:
+- LC_ERROR on error.
+- LC_SUCCESS on success.
+
+---
+
+```c
+int lc_dump_config(lc_config_t *config, const char *filepath);
+```
+
+This function dumps the data from the configuration structure into a file.
+
+Required argument:
+- config - address of a local lc_config_t variable.
+- filepath - a string containing the path to file.
+
+(the function can use either the filepath specified in the function arguments, or if it is NULL, then use the filepath in the configuration structure itself, which was given when calling lc_init_config())
+
+Return value:
+- LC_ERROR on error.
+- LC_SUCCESS on success.
+
+---
+
+```c
+int lc_dump_config_stream(lc_config_t *config, FILE *fp);
+```
+
+This function dumps the data from the config structure to the file stream
+
+Required argument:
+- config - address of a local lc_config_t variable.
+- fp - file pointer.
+
+(the function strictly uses the file pointer, if it is NULL, the function will return LC_ERROR)
+
+Return value:
+- LC_ERROR on error.
+- LC_SUCCESS on success.
+
+---
+
+```c
+void lc_print_config(const lc_config_t *config);
+```
+
+This function prints the linked list of variables from the configuration structure to the console output.
+
+Required argument:
+- config - address of a local lc_config_t variable.
+
+---
+
+```c
+char* lc_get_error(const lc_config_t *config);
+```
+
+This function returns the description of the error as an allocated string.
+
+Required argument:
+- config - address of a local lc_config_t variable.
+
+Return value:
+- NULL on error.
+- pointer to string(error description) on success.
+
+(keep in mind, after use, you need to free the returned allocated string from memory.)
+
+---
+
