@@ -5,89 +5,67 @@
 #include <stdlib.h>
 #include <libconf.h>
 
-int main(void) {
-	char* path = lc_create_config("test.txt");
+// usage: ./test [file1] [file2]
+int main(int argc, char **argv)
+{
+	if(argc != 3)
+		return EXIT_FAILURE;
 
-	lc_insert_var(path, "OS", "Linux");
-	lc_insert_var(path, "Arch", "x86");
-	lc_insert_var(path, "SHELL", "bash");
+	lc_config_t config;
 
-	lc_display_config(path);
+	// initialize a config for first file
+	lc_init_config(&config, argv[1], ": ");
 
-	lc_delete_var(path, "SHELL");
+	// creating a new variable
+	lc_config_variable_t *variable = lc_create_variable("name1", "value1");
 
-	lc_display_config(path);
+	// adding variable to config structure
+	lc_add_variable(&config, variable);
 
-	lc_rewrite_var(path, "OS", "Ubuntu");
+	// destroy variable (cleanup from memory)
+	lc_destroy_variable(variable);
 
-	lc_display_config(path);
+	// dump config to file
+	lc_dump_config(&config, NULL);
 
-	char* OS = lc_get_var(path, "OS");
-	printf("OS = %s\n", OS);
+	// print config to output
+	lc_print_config(&config);
 
-	// if you want, you can delete file
-	// lc_delete_config(path);
+	// cleanup config
+	lc_clear_config(&config);
 
-	free(path);
-	free(OS);
-	return 0;
+
+
+	// initialize a config for second file
+	lc_init_config(&config, NULL, " = ");
+
+	// loading data from file
+	lc_load_config(&config, argv[2]);
+
+	// creating a new variable
+	variable = lc_create_variable("variable", "test-value");
+
+	// adding variable to config structure
+	lc_add_variable(&config, variable);
+
+	// rename the variable name
+	lc_set_variable_name(variable, "variable2");
+
+	// adding the changed variable to config structure
+	lc_add_variable(&config, variable);
+
+	// destroy variable (cleanup from memory)
+	lc_destroy_variable(variable);
+
+	// dump config to file
+	lc_dump_config(&config, argv[2]);
+
+	//print config to output
+	lc_print_config(&config);
+
+	// cleanup config
+	lc_clear_config(&config);
+
+	return EXIT_SUCCESS;
 }
 ```
-
-here you create a file called test.txt then add 3 variables to it: OS, Arch, SHELL. then the contents of that file are displayed. next, you delete the SHELL variable, and overwrite the value of the OS variable. it then takes the value of the OS variable and displays it. at the end, we release the memory from the path to the file and the value of the OS variable.
-
-# usage of split category functions
-here we have a file with this data(in the same directory as the code file):
-```shell
-TEST1=a|b|c|d|e
-TEST2=a.b.c.d.e
-```
-
-and this code:
-```c
-#include <stdio.h>
-#include <stdlib.h>
-#include <libconf.h>
-
-int main(void) {
-	char* file = "test.txt";
-
-	// getting all tokens from TEST1 variable, with "|" delim
-	lc_split_t* test1 = lc_split_var(file, "TEST1", "|");
-	if(test1 == NULL) {
-		return EXIT_FAILURE;
-	}
-
-	// getting all tokens from TEST2 variable, with "." delim
-	lc_split_t* test2 = lc_split_var(file, "TEST2", ".");
-	if(test2 == NULL) {
-		return EXIT_FAILURE;
-	}
-
-	lc_print_tokens(test1); // output: a, b, c, d, e
-	lc_print_tokens(test2); // output: a, b, c, d, e
-
-	char* value1 = lc_get_token(test1, 1);	// get "b" from test1 list
-	if(value1 == NULL) {
-		return EXIT_FAILURE;
-	}
-
-	char* value2 = lc_get_token(test2, 3);	// get "d" from test2 list
-	if(value2 == NULL) {
-		return EXIT_FAILURE;
-	}
-
-	printf("value(1) = %s\n", value1);
-	printf("value(3) = %s\n", value2);
-
-	lc_free_split(test1);
-	lc_free_split(test2);
-
-	free(value1);
-	free(value2);
-
-	return 0;
-}
-```
-
-here we take the TEST1 and TEST2 variables from the file and split it's values into tokens that contains in linked list structure, named lc_split_t, and display the content of lists. Also we getting 2 times tokens by his index, get token with 1 index from test1 and token with 3 index from test2, and then displaying them. Then we release the lists from memory.
