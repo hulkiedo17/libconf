@@ -281,3 +281,211 @@ Return value:
 
 ---
 
+```c
+int lc_add_variable(lc_config_t *config, lc_config_variable_t *variable);
+```
+
+This function adds a variable to a linked list of variables in the configuration structure.
+(importantly, the function creates a copy of the passed variable from the inside, and the passed variable must be freed from memory by the user after use. (use: lc_destroy_variable()))
+
+Required argument:
+- config - address of a local lc_config_t variable.
+- variable - pointer to allocated variable struct.
+
+Return value:
+- LC_ERROR on error.
+- LC_SUCCESS on success.
+
+---
+
+```c
+int lc_delete_variable(lc_config_t *config, const char *name);
+```
+
+This function removes a variable from the linked list of variables by name in the configuration structure.
+
+Required argument:
+- config - address of a local lc_config_t variable.
+- name - pointer to string
+
+Return value:
+- LC_ERROR on error.
+- LC_SUCCESS on success.
+
+---
+
+```c
+lc_existence_t lc_is_variable_in_config(lc_config_t *config, const char *name);
+```
+
+This function checks if a variable by name is in the linked list of variables in the configuration structure and returns a constant from the lc_existence_t enum.
+
+Required argument:
+- config - address of a local lc_config_t variable.
+- name - pointer to string
+
+Return value:
+- LC_EF_ERROR if error
+- LC_EF_EXISTS if variable exists
+- LC_EF_NOT_EXISTS if variable does not exists
+
+---
+
+```c
+int lc_set_variable(lc_config_t *config, const char *name, const char *new_value);
+```
+
+This function sets the new value of a variable by name in a linked list of variables in the configuration structure.
+
+Required argument:
+- config - address of a local lc_config_t variable.
+- name - pointer to string
+- new_value - pointer to string
+
+Return value:
+- LC_ERROR on error.
+- LC_SUCCESS on success.
+
+---
+
+```c
+lc_config_variable_t* lc_get_variable(lc_config_t *config, const char *name);
+```
+
+This function looks up the variable by name in the linked list of variables in the configuration structure.
+
+Required argument:
+- config - address of a local lc_config_t variable.
+- name - pointer to string
+
+Return value:
+- NULL on error.
+- allocated variable (lc_config_variable_t*) on success.
+
+(important to know: the function creates a copy of the variable contained in the linked list of the configuration structure, and after use, the user needs to free it from memory. (use: lc_destroy_variable()))
+
+---
+
+```c
+int lc_replace_variable(lc_config_t *config, const char *name, lc_config_variable_t *variable);
+```
+
+This function replaces one variable by name with a new variable in the linked list of variables in the configuration structure.
+(important to know: the function creates a copy of the variable passed as an argument, and after use, the user needs to free it from memory. (use: lc_destroy_variable()))
+
+Required argument:
+- config - address of a local lc_config_t variable.
+- name - pointer to string
+- variable - pointer to allocated variable struct.
+
+Return value:
+- LC_ERROR on error.
+- LC_SUCCESS on success.
+
+---
+
+```c
+lc_config_variable_t* lc_create_variable(const char *name, const char *value);
+```
+
+This function allocates a new variable, taking a name and a value as arguments.
+
+Required argument:
+- name - pointer to string
+- value - pointer to string
+
+Return value:
+- NULL on error.
+- allocated variable (lc_config_variable_t*) on success.
+
+---
+
+```c
+lc_config_variable_t* lc_create_variable_copy(lc_config_variable_t *variable);
+```
+
+This function creates a copy of the variable, allocating memory for it.
+
+Required argument:
+- variable - pointer to allocated variable struct.
+
+Return value:
+- NULL on error.
+- allocated variable (lc_config_variable_t*) on success.
+
+---
+
+```c
+void lc_destroy_variable(lc_config_variable_t *variable);
+```
+
+This function releases a variable from memory.
+
+Required argument:
+- variable - pointer to allocated variable struct.
+
+---
+
+```c
+char* lc_get_variable_name(lc_config_variable_t *variable);
+```
+
+This function returns an allocated copy of the string with the variable name
+
+Required argument:
+- variable - pointer to allocated variable struct.
+
+Return value:
+- NULL on error.
+- pointer to string(name of variable) on success.
+
+(important to know: after use, the memory of the returned value must be freed)
+
+---
+
+```c
+char* lc_get_variable_value(lc_config_variable_t *variable);
+```
+
+This function returns an allocated copy of the string with the variable value
+
+Required argument:
+- variable - pointer to allocated variable struct.
+
+Return value:
+- NULL on error.
+- pointer to string(value of variable) on success.
+
+(important to know: after use, the memory of the returned value must be freed)
+
+---
+
+```c
+int lc_set_variable_name(lc_config_variable_t *variable, const char *name);
+```
+
+This function replaces the name in a variable.
+
+Required argument:
+- variable - pointer to allocated variable struct.
+- name - pointer to string
+
+Return value:
+- LC_ERROR on error.
+- LC_SUCCESS on success.
+
+---
+
+```c
+int lc_set_variable_value(lc_config_variable_t *variable, const char *value);
+```
+
+This function replaces the value in a variable.
+
+Required argument:
+- variable - pointer to allocated variable struct.
+- value - pointer to string
+
+Return value:
+- LC_ERROR on error.
+- LC_SUCCESS on success.
