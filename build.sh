@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 debug() {
 	mkdir -p build
-	cd build
+	cd build || exit
 
 	cmake "-DCMAKE_BUILD_TYPE=DEBUG" ".."
 	make
@@ -11,7 +11,7 @@ debug() {
 
 release() {
 	mkdir -p build
-	cd build
+	cd build || exit
 
 	cmake "-DCMAKE_BUILD_TYPE=RELEASE" ".."
 	make
@@ -19,7 +19,7 @@ release() {
 }
 
 clean() {
-	cd build
+	cd build || exit
 	make clean
 }
 
@@ -32,7 +32,7 @@ help() {
 }
 
 handle_options() {
-	if [ -z $* ]; then
+	if [ -z "$*" ]; then
 		debug
 		exit 0
 	fi
