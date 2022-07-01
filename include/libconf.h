@@ -24,8 +24,8 @@ typedef enum lc_existence
 
 typedef struct lc_config_variable
 {
-	char * name;
-	char * value;
+	char *name;
+	char *value;
 } lc_config_variable_t;
 
 struct _lc_config_list
@@ -39,7 +39,7 @@ typedef struct lc_config
 	struct _lc_config_list *list;
 	size_t list_size;
 	enum _lc_config_error error_type;
-	char *filepath;
+	char *path;
 	char *delim;
 } lc_config_t;
 
