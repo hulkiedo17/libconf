@@ -61,14 +61,7 @@ static FILE* file_open(const char *file, const char *mode)
 	return fp;
 }
 
-static char* _find_delimiter(const char * str, const char * delim)
-{
-	if(str == NULL || delim == NULL)
-		return NULL;
-
-	return strstr(str, delim);
-}
-
+// remove
 static char* _read_line_from_file(FILE *fp)
 {
 	int c;
@@ -218,7 +211,7 @@ static lc_config_variable_t* _convert_line_to_variable(const char *line, const c
 	if(line == NULL || delim == NULL)
 		return NULL;
 
-	if(_find_delimiter(line, delim) == NULL)
+	if(strstr(line, delim) == NULL)
 	{
 		free(d_line);
 		warning("[WARNING] %s: cannot find \"%s\" delimiter in line \"%s\"\n", __func__, delim, line);
@@ -460,6 +453,7 @@ static int _read_file_to_config(lc_config_t *config, FILE *fp)
 	if(config == NULL || fp == NULL)
 		return LC_ERROR;
 
+	// TODO: delete read_line
 	while((line = _read_line_from_file(fp)) != NULL)
 	{
 		if((variable = _convert_line_to_variable(line, config->delim)) == NULL)
