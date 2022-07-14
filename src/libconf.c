@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -58,25 +59,6 @@ static FILE* file_open(const char *file, const char *mode)
 		p_error("[ERROR] %s: allocation failed\n", __func__);
 
 	return fp;
-}
-
-static char* str_dup(const char *str)
-{
-	size_t len = (size_t)0;
-	char *buf = NULL;
-
-	if(str == NULL)
-		return NULL;
-
-	len = strlen(str) + 1;
-
-	buf = calloc(len, sizeof(char));
-	if(buf == NULL)
-		p_error("[ERROR] %s: allocation failed\n", __func__);
-
-	memcpy(buf, str, len);
-
-	return buf;
 }
 
 static char* _find_delimiter(const char * str, const char * delim)
@@ -177,14 +159,14 @@ static lc_config_variable_t* _make_config_variable(const char *name, const char 
 	if(variable == NULL)
 		p_error("[ERROR] %s: allocation failed\n", __func__);
 
-	variable->name = str_dup(name);
+	variable->name = strdup(name);
 	if(variable->name == NULL)
 	{
 		free(variable);
 		return NULL;
 	}
 
-	variable->value = str_dup(value);
+	variable->value = strdup(value);
 	if(variable->value == NULL)
 	{
 		free(variable->name);
@@ -243,7 +225,7 @@ static lc_config_variable_t* _convert_line_to_variable(const char *line, const c
 		return NULL;
 	}
 
-	d_line = str_dup(line);
+	d_line = strdup(line);
 	if(d_line == NULL)
 		return NULL;
 
@@ -451,7 +433,7 @@ static int _rewrite_list_element_value(lc_config_t *config, const char *name, co
 		return LC_ERROR;
 
 	free(element->variable->value);
-	element->variable->value = str_dup(new_value);
+	element->variable->value = strdup(new_value);
 
 	config->error_type = LC_ERR_NONE;
 	return LC_SUCCESS;
@@ -554,7 +536,7 @@ int lc_init_config(lc_config_t *config, const char *path, const char *delim)
 
 	if(path != NULL)
 	{
-		if((config->path = str_dup(path)) == NULL)
+		if((config->path = strdup(path)) == NULL)
 		{
 			config->error_type = LC_ERR_MEMORY_NO;
 			return LC_ERROR;
@@ -565,7 +547,7 @@ int lc_init_config(lc_config_t *config, const char *path, const char *delim)
 		config->path = NULL;
 	}
 
-	if((config->delim = str_dup(delim)) == NULL)
+	if((config->delim = strdup(delim)) == NULL)
 	{
 		free(config->path);
 		config->error_type = LC_ERR_MEMORY_NO;
@@ -879,7 +861,7 @@ char* lc_get_error(const lc_config_t *config)
 		return NULL;
 	}
 
-	return str_dup(error_msg[config->error_type]);
+	return strdup(error_msg[config->error_type]);
 }
 
 void lc_clear_config(lc_config_t *config)
@@ -906,7 +888,7 @@ char* lc_get_delim(lc_config_t *config)
 		return NULL;
 	}
 
-	return str_dup(config->delim);
+	return strdup(config->delim);
 }
 
 int lc_set_delim(lc_config_t *config, const char *delim)
@@ -921,7 +903,7 @@ int lc_set_delim(lc_config_t *config, const char *delim)
 
 	free(config->delim);
 
-	if((config->delim = str_dup(delim)) == NULL)
+	if((config->delim = strdup(delim)) == NULL)
 	{
 		config->error_type = LC_ERR_MEMORY_NO;
 		return LC_ERROR;
@@ -948,7 +930,7 @@ char* lc_get_path(const lc_config_t *config)
 		return NULL;
 	}
 
-	return str_dup(config->path);
+	return strdup(config->path);
 }
 
 int lc_set_path(lc_config_t *config, const char *path)
@@ -964,7 +946,7 @@ int lc_set_path(lc_config_t *config, const char *path)
 
 	free(config->path);
 
-	if((config->path = str_dup(path)) == NULL)
+	if((config->path = strdup(path)) == NULL)
 	{
 		config->error_type = LC_ERR_MEMORY_NO;
 		return LC_ERROR;
@@ -1021,7 +1003,7 @@ char* lc_get_variable_name(lc_config_variable_t *variable)
 		return NULL;
 	}
 
-	return str_dup(variable->name);
+	return strdup(variable->name);
 }
 
 char* lc_get_variable_value(lc_config_variable_t *variable)
@@ -1031,7 +1013,7 @@ char* lc_get_variable_value(lc_config_variable_t *variable)
 		return NULL;
 	}
 
-	return str_dup(variable->value);
+	return strdup(variable->value);
 }
 
 int lc_set_variable_name(lc_config_variable_t *variable, const char *name)
@@ -1042,7 +1024,7 @@ int lc_set_variable_name(lc_config_variable_t *variable, const char *name)
 	}
 
 	free(variable->name);
-	variable->name = str_dup(name);
+	variable->name = strdup(name);
 
 	return LC_SUCCESS;
 }
@@ -1055,7 +1037,7 @@ int lc_set_variable_value(lc_config_variable_t *variable, const char *value)
 	}
 
 	free(variable->value);
-	variable->value = str_dup(value);
+	variable->value = strdup(value);
 
 	return LC_SUCCESS;
 }
