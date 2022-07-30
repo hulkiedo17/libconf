@@ -56,7 +56,9 @@ static FILE* file_open(const char *file, const char *mode)
 
 	fp = fopen(file, mode);
 	if(fp == NULL)
+	{
 		p_error("[ERROR] %s: allocation failed\n", __func__);
+	}
 
 	return fp;
 }
@@ -76,7 +78,9 @@ static char* _read_line_from_file(FILE *fp)
 
 	buf = calloc(len, sizeof(char));
 	if(buf == NULL)
+	{
 		p_error("[ERROR] %s: allocation failed\n", __func__);
+	}
 
 	while(1)
 	{
@@ -94,7 +98,7 @@ static char* _read_line_from_file(FILE *fp)
 			return buf;
 		}
 
-		buf[pos++] = c;
+		buf[pos++] = (char)c;
 
 		if(pos >= len)
 		{
@@ -102,7 +106,9 @@ static char* _read_line_from_file(FILE *fp)
 			len += LINE_SIZE;
 			buf = realloc(buf, len);
 			if(buf == NULL)
+			{
 				p_error("[ERROR] %s: allocation failed\n", __func__);
+			}
 		}
 	}
 
@@ -150,7 +156,9 @@ static lc_config_variable_t* _make_config_variable(const char *name, const char 
 
 	variable = malloc(sizeof(lc_config_variable_t));
 	if(variable == NULL)
+	{
 		p_error("[ERROR] %s: allocation failed\n", __func__);
+	}
 
 	variable->name = strdup(name);
 	if(variable->name == NULL)
@@ -193,7 +201,9 @@ static struct _lc_config_list* _create_list_element(lc_config_variable_t *variab
 
 	element = malloc(sizeof(struct _lc_config_list));
 	if(element == NULL)
+	{
 		p_error("[ERROR] %s: allocation failed\n", __func__);
+	}
 
 	element->variable = variable;
 	element->next = NULL;
@@ -244,7 +254,9 @@ static char* _convert_variable_to_line(lc_config_variable_t *variable, const cha
 
 	line = calloc(len, sizeof(char));
 	if(line == NULL)
+	{
 		p_error("[ERROR] %s: allocation failed\n", __func__);
+	}
 
 	if(snprintf(line, len, "%s%s%s\n", variable->name, delim, variable->value) != ((int)len - 1))
 	{
